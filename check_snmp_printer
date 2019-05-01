@@ -413,9 +413,6 @@ sub check_consumables {
 
 sub check_paper_trays {
 
-#	Vendor specific items to code
-#		tray names
-
 	my $found=0;
 	my %tmpprs = ();
 
