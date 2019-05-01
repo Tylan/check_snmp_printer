@@ -192,7 +192,7 @@ Required Arguments:
  --trays
     Checks trays for paper status.
  --consum
-    Check consumables for status.
+    Checks consumables for status.
 
 Optional Arguments:
  -C, --community=STRING
