@@ -211,7 +211,7 @@ EOB
 }
 
 #########################################################
-###		check_model function		   ###
+###		check_model function		      ###
 #########################################################
 
 sub check_model {
@@ -233,7 +233,7 @@ sub check_model {
 }
 
 #########################################################
-###		check_messages function		   ###
+###		check_messages function		      ###
 #########################################################
 
 sub check_messages {
@@ -258,7 +258,7 @@ sub check_messages {
 }
 
 #########################################################
-###		check_page_count function	   ###
+###		check_page_count function	      ###
 #########################################################
 sub check_page_count {
 	my ($oid,$result);
@@ -276,7 +276,7 @@ sub check_page_count {
 }
 
 #########################################################
-###		check_consumables function	   ###
+###		check_consumables function	      ###
 #########################################################
 
 sub check_consumables {
@@ -408,7 +408,7 @@ sub check_consumables {
 
 
 #########################################################
-###		check_paper_trays Function	   ###
+###		check_paper_trays Function	      ###
 #########################################################
 
 sub check_paper_trays {
@@ -549,7 +549,7 @@ sub check_paper_trays {
 }
 
 #########################################################
-###			MAIN CODE		   ###
+###			MAIN CODE		      ###
 #########################################################
 
 # set alarm in case we hang
