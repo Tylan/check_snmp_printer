@@ -500,7 +500,7 @@ sub check_paper_trays {
                                 when (/0/i) { if ($model =~ m/Canon/) { $state = "OK"; $EXITSTRING.= "OK: $name ($xfeeddim x $feeddim)<br>"; } }
                                 when (/9/i) { if ($model =~ m/HP/) { $state = "OK"; $EXITSTRING.= "OK: $name ($xfeeddim x $feeddim)<br>"; } }
 				# still unknown so we'll mark it warning because we just don't know
-                                default { $state = "OK"; $EXITSTRING.= "WARNING: ".$name." is in UNKNOWN status.<br>"; }
+                                default { $state = "WARNING"; $EXITSTRING.= "WARNING: ".$name." is in UNKNOWN status.<br>"; }
                         }
 		} elsif ($cap==0) {
 			# 0 means there is no paper left! This is our only critical value.
