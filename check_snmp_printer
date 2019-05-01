@@ -546,12 +546,7 @@ sub check_paper_trays {
 		$tcount--;
 		$i++;
 	}
-	if ($found==0) {
-		print "Tray $_[0] not found, please use \"0\" to find all trays\n";
-  		exit($ERRORS{'UNKNOWN'});
-	}
 }
-
 
 #########################################################
 ###			MAIN CODE		   ###
