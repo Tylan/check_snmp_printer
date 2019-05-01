@@ -43,7 +43,7 @@
 # DEPENDS On						#
 # Net::SNMP perl module					#
 # Nagios plugins installed and located in lib64		#
-# Perl > 5.10						#
+# Perl >= 5.10						#
 #							#
 #########################################################
 
