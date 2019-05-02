@@ -3,7 +3,7 @@ Icinga Plugin for Checking SNMP Printer Status (Trays and Consumables)
 
 ## Getting Started
 
-These instructions assume your Icinga2 is installed on a RHEL/Centos system.  You may need to modify slightly to work with other systems.
+These instructions assume your Icinga2 is installed on a RHEL/CentOS system.  You may need to modify slightly to work with other systems.
 
 ### Prerequisites
 
