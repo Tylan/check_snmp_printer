@@ -1,6 +1,8 @@
 # check_snmp_printer
 Icinga Plugin for Checking SNMP Printer Status (Trays and Consumables) which includes PerfData.
 
+Forked and modified from Franky Van Liedekerke's 2014 version.
+
 ## Getting Started
 
 These instructions assume your Icinga2 is installed on a RHEL/CentOS system.  You may need to modify slightly to work with other systems.
