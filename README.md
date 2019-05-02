@@ -8,8 +8,11 @@ These instructions assume your Icinga2 is installed on a RHEL/Centos system.  Yo
 ### Prerequisites
 
 Perl >= 5.10
+
 Net::SNMP perl module
+
 Nagios plugins installed and located in /usr/lib64/nagios/plugins
+
 
 ### Installing
 
