@@ -532,9 +532,9 @@ sub check_paper_trays {
         while ($perfcount > 0) {
                 (my $tray = $strays[$i][0]) =~ s/ /_/g;
 		given ($status[$i]) {
-			when (/CRITICAL/i) { $EXITSTRING.= $tray."=3"; }
-			when (/WARNING/i) { $EXITSTRING.= $tray."=2"; }
-			when (/OK/i) { $EXITSTRING.= $tray."=0"; }
+			when (/CRITICAL/i) { $EXITSTRING.= $tray."=0"; }
+			when (/WARNING/i) { $EXITSTRING.= $tray."=1"; }
+			when (/OK/i) { $EXITSTRING.= $tray."=2"; }
 		}
                 $i++;
                 $perfcount--;
