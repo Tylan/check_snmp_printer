@@ -3,7 +3,7 @@
 #                                                       #
 #                                                       #
 #      SNMP Printer Check Plugin for Icinga             #
-#  	     Version 1.0 (May 01, 2019)			#
+#  	     Version 1.0.1 (May 09, 2019)		#
 #		 by Rob McLoughlin                      #
 #	  E-mail: rmcloughlin@outlook.com		#
 #                                                       #
@@ -22,7 +22,9 @@
 # 							#
 #                                                       #
 # Version History                                       #
-#                                                       #
+#							#
+# 1.0.1							#
+#    - Fixed default SNMP version			#
 # 1.0                                                   #
 #    - Forked from Franky Van Liedekerke version	#
 #    - Made consumables and trays all or nothing	#
@@ -80,7 +82,7 @@ my %STATUS_CODE =
 
 # config
 $PROGNAME    = $0;
-$VERSION     = '1.01';
+$VERSION     = '1.0.1';
 
 # init options
 $opt_version	= undef;
