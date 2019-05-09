@@ -80,7 +80,7 @@ my %STATUS_CODE =
 
 # config
 $PROGNAME    = $0;
-$VERSION     = '1.0';
+$VERSION     = '1.01';
 
 # init options
 $opt_version	= undef;
