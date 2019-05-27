@@ -5,8 +5,6 @@ Forked and modified from Franky Van Liedekerke's 2014 version.
 
 **Consumables**
 
-![](img/ConsumableOKGraph.png)
-![](img/ConsumableWarningGraph.png)
 ![](img/ConsumableCriticalGraph.png)
 
 **Tray Status**
