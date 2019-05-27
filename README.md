@@ -3,11 +3,19 @@ Icinga Plugin for Checking SNMP Printer Status (Trays, Consumables and Pagecount
 
 Forked and modified from Franky Van Liedekerke's 2014 version.
 
-![]("img/ConsumableOKGraph.png")
-![]("img/ConsumableWarningGraph.png")
-![]("img/ConsumableCriticalGraph.png")
-![]("img/TrayStatusGraph.png")
-![]("img/PagecountGraph.png")
+**Consumables**
+
+![](img/ConsumableOKGraph.png)
+![](img/ConsumableWarningGraph.png)
+![](img/ConsumableCriticalGraph.png)
+
+**Tray Status**
+
+![](img/TrayStatusGraph.png)
+
+**Page Count**
+
+![](img/PagecountGraph.png)
 
 ## Getting Started
 
