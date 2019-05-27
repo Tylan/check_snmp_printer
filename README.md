@@ -1,5 +1,5 @@
 # check_snmp_printer
-Icinga Plugin for Checking SNMP Printer Status (Trays and Consumables) which includes PerfData.
+Icinga Plugin for Checking SNMP Printer Status (Trays, Consumables and Pagecounts) which includes PerfData.
 
 Forked and modified from Franky Van Liedekerke's 2014 version.
 
@@ -41,6 +41,7 @@ If using Graphite, copy graphite templates to Icinga2 Graphite template folder:
 ```
 sudo cp ./printer-consumables.ini /usr/share/icingaweb2/modules/graphite/templates/
 sudo cp ./printer-trays.ini /usr/share/icingaweb2/modules/graphite/templates/
+sudo cp ./printer-pagecount.ini /usr/share/icingaweb2/modules/graphite/templates/
 ```
 
 Restart Icinga2:
