@@ -3,7 +3,7 @@
 #                                                       #
 #                                                       #
 #      SNMP Printer Check Plugin for Icinga             #
-#            Version 1.0.2 (May 27, 2019)               #
+#            Version 1.0.3 (December 26, 2019)          #
 #                by Rob McLoughlin                      #
 #         E-mail: rmcloughlin@outlook.com               #
 #                                                       #
@@ -23,6 +23,8 @@
 #                                                       #
 # Version History                                       #
 #                                                       #
+# 1.0.3                                                 #
+#    - Added graph support for Grafana                  #
 # 1.0.2                                                 #
 #    - Changed plugin newline output from <br> to \n    #
 #    - Fixed Canon consumable output display            #
@@ -79,7 +81,7 @@ my %STATUS_CODE =
 
 # config
 $PROGNAME    = $0;
-$VERSION     = '1.0.2';
+$VERSION     = '1.0.3';
 
 # init options
 $opt_version    = undef;
