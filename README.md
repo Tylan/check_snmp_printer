@@ -55,6 +55,15 @@ sudo cp ./printer-consumables.ini /usr/share/icingaweb2/modules/graphite/templat
 sudo cp ./printer-trays.ini /usr/share/icingaweb2/modules/graphite/templates/
 sudo cp ./printer-pagecount.ini /usr/share/icingaweb2/modules/graphite/templates/
 ```
+If using Grafana, import JSON Dashboard file and add graph dashboard information into module:
+
+![](img/GrafanaDashboardImport.png)
+
+![](img/GrafanaLoadJSON.png)
+
+```
+sudo cat printer-metrics-graphs.ini >> /etc/icingaweb2/modules/grafana/graphs.ini
+```
 
 Restart Icinga2:
 
