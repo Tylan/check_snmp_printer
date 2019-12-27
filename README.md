@@ -58,7 +58,7 @@ sudo cp ./printer-pagecount.ini /usr/share/icingaweb2/modules/graphite/templates
 
 If using Grafana, import JSON Dashboard file and add graph dashboard information into module making sure to name the Dashboard printer-metrics:
 
-NOTE: Set for Graphite DB.  If using other DB might have to make slight adjustments as required.
+**NOTE: Set for Graphite DB.  If using other DB might have to make slight adjustments as required.**
 
 ![](img/GrafanaDashboardImport.png)
 
