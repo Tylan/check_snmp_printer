@@ -16,7 +16,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 8,
-  "iteration": 1577456535129,
+  "iteration": 1578928890832,
   "links": [],
   "panels": [
     {
@@ -47,7 +47,7 @@
         "values": false
       },
       "lines": true,
-      "linewidth": 1,
+      "linewidth": 2,
       "nullPointMode": "connected",
       "options": {
         "dataLinks": []
@@ -104,6 +104,7 @@
         "sort": 0,
         "value_type": "individual"
       },
+      "transparent": true,
       "type": "graph",
       "xaxis": {
         "buckets": null,
@@ -127,7 +128,7 @@
           "logBase": 1,
           "max": null,
           "min": null,
-          "show": true
+          "show": false
         }
       ],
       "yaxis": {
@@ -171,7 +172,7 @@
         "values": false
       },
       "lines": true,
-      "linewidth": 1,
+      "linewidth": 2,
       "nullPointMode": "connected",
       "options": {
         "dataLinks": []
@@ -540,6 +541,7 @@
         "sort": 0,
         "value_type": "individual"
       },
+      "transparent": true,
       "type": "graph",
       "xaxis": {
         "buckets": null,
@@ -563,7 +565,7 @@
           "logBase": 1,
           "max": null,
           "min": null,
-          "show": true
+          "show": false
         }
       ],
       "yaxis": {
@@ -580,10 +582,15 @@
         "Fuser": "#ba8823",
         "Magenta": "#ff00ff",
         "Maintenance Kit": "#ba232a",
+        "Puncher Waste": "#ff99cc",
+        "Saddle Staples": "#999966",
+        "Stapler": "#996600",
+        "Staples": "#996600",
         "Transfer Unit": "#49ba23",
         "Yellow": "yellow"
       },
       "bars": false,
+      "cacheTimeout": null,
       "dashLength": 10,
       "dashes": false,
       "datasource": "InfluxDB",
@@ -598,6 +605,7 @@
       "hiddenSeries": false,
       "id": 1,
       "legend": {
+        "alignAsTable": false,
         "avg": false,
         "current": false,
         "max": false,
@@ -607,12 +615,14 @@
         "values": false
       },
       "lines": true,
-      "linewidth": 1,
+      "linewidth": 2,
+      "links": [],
       "nullPointMode": "connected",
       "options": {
         "dataLinks": []
       },
       "percentage": false,
+      "pluginVersion": "6.5.2",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -627,6 +637,8 @@
           "measurement": "snmp_printer",
           "orderByTime": "ASC",
           "policy": "default",
+          "query": "SELECT \"value\" FROM \"snmp_printer\" WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Consumables Status' AND \"metric\" = 'Black_Toner' ) AND $timeFilter",
+          "rawQuery": false,
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -931,6 +943,8 @@
           "measurement": "snmp_printer",
           "orderByTime": "ASC",
           "policy": "default",
+          "query": "SELECT \"value\" FROM \"snmp_printer\" WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Consumables Status' AND \"metric\" = 'Document_Feeder_Kit') AND $timeFilter",
+          "rawQuery": false,
           "refId": "I",
           "resultFormat": "time_series",
           "select": [
@@ -962,6 +976,166 @@
               "value": "Document_Feeder_Kit"
             }
           ]
+        },
+        {
+          "alias": "Stapler",
+          "groupBy": [],
+          "measurement": "snmp_printer",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"value\" FROM \"snmp_printer\" WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Consumables Status' AND \"metric\" = 'Staples') AND $timeFilter",
+          "rawQuery": false,
+          "refId": "J",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "hostname",
+              "operator": "=~",
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Consumables Status"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "Stapler"
+            }
+          ]
+        },
+        {
+          "alias": "Staples",
+          "groupBy": [],
+          "measurement": "snmp_printer",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"value\" FROM \"snmp_printer\" WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Consumables Status' AND \"metric\" = 'Staples') AND $timeFilter",
+          "rawQuery": false,
+          "refId": "K",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "hostname",
+              "operator": "=~",
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Consumables Status"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "Staples"
+            }
+          ]
+        },
+        {
+          "alias": "Saddle Staples",
+          "groupBy": [],
+          "measurement": "snmp_printer",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"value\" FROM \"snmp_printer\" WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Consumables Status' AND \"metric\" = 'Saddle_Staples') AND $timeFilter",
+          "rawQuery": false,
+          "refId": "L",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "hostname",
+              "operator": "=~",
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Consumables Status"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "Saddle_Staples"
+            }
+          ]
+        },
+        {
+          "alias": "Puncher Waste",
+          "groupBy": [],
+          "measurement": "snmp_printer",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"value\" FROM \"snmp_printer\" WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Consumables Status' AND \"metric\" = 'Puncher_Waste') AND $timeFilter",
+          "rawQuery": false,
+          "refId": "M",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "hostname",
+              "operator": "=~",
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Consumables Status"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "Puncher_Waste"
+            }
+          ]
         }
       ],
       "thresholds": [],
@@ -974,6 +1148,7 @@
         "sort": 0,
         "value_type": "individual"
       },
+      "transparent": true,
       "type": "graph",
       "xaxis": {
         "buckets": null,
@@ -997,7 +1172,7 @@
           "logBase": 1,
           "max": null,
           "min": null,
-          "show": true
+          "show": false
         }
       ],
       "yaxis": {
@@ -1013,7 +1188,10 @@
     "list": [
       {
         "allValue": null,
-        "current": {},
+        "current": {
+          "text": "Aruba AP Controller",
+          "value": "Aruba AP Controller"
+        },
         "datasource": "InfluxDB",
         "definition": "SHOW TAG VALUES WITH KEY = \"hostname\"",
         "hide": 0,
@@ -1021,16 +1199,9 @@
         "label": null,
         "multi": false,
         "name": "hostname",
-        "options": [
-          {
-            "isNone": true,
-            "selected": false,
-            "text": "None",
-            "value": ""
-          }
-        ],
+        "options": [],
         "query": "SHOW TAG VALUES WITH KEY = \"hostname\"",
-        "refresh": 0,
+        "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
         "sort": 0,
@@ -1043,8 +1214,8 @@
       {
         "allValue": null,
         "current": {
-          "text": "Pagecount",
-          "value": "Pagecount"
+          "text": "AP Bandwidth",
+          "value": "AP Bandwidth"
         },
         "datasource": "InfluxDB",
         "definition": "SHOW TAG VALUES WITH KEY = \"service\" where hostname =~ /^$hostname$/",
@@ -1053,16 +1224,9 @@
         "label": null,
         "multi": false,
         "name": "service",
-        "options": [
-          {
-            "isNone": true,
-            "selected": false,
-            "text": "None",
-            "value": ""
-          }
-        ],
+        "options": [],
         "query": "SHOW TAG VALUES WITH KEY = \"service\" where hostname =~ /^$hostname$/",
-        "refresh": 0,
+        "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
         "sort": 0,
@@ -1075,8 +1239,8 @@
       {
         "allValue": null,
         "current": {
-          "text": "snmp_printer",
-          "value": "snmp_printer"
+          "text": "aruba_ap",
+          "value": "aruba_ap"
         },
         "datasource": "InfluxDB",
         "definition": "SHOW MEASUREMENTS where hostname =~ /^$hostname$/",
@@ -1085,16 +1249,9 @@
         "label": null,
         "multi": false,
         "name": "command",
-        "options": [
-          {
-            "isNone": true,
-            "selected": false,
-            "text": "None",
-            "value": ""
-          }
-        ],
+        "options": [],
         "query": "SHOW MEASUREMENTS where hostname =~ /^$hostname$/",
-        "refresh": 0,
+        "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
         "sort": 0,
@@ -1127,5 +1284,5 @@
   "timezone": "",
   "title": "printer-metrics",
   "uid": "NPbC04YZk",
-  "version": 12
+  "version": 40
 }
