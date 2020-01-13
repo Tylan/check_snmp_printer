@@ -373,7 +373,6 @@ sub nonmeasurable {
 }
 
 sub prioritize_results {
-
         my ($metric) = @_;
         my ($mcount,$scode);
 
