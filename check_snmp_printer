@@ -3,7 +3,7 @@
 #                                                       #
 #                                                       #
 #      SNMP Printer Check Plugin for Icinga             #
-#            Version 1.0.3 (December 26, 2019)          #
+#            Version 1.1.0 (January 13, 2020)           #
 #                by Rob McLoughlin                      #
 #         E-mail: rmcloughlin@outlook.com               #
 #                                                       #
@@ -23,6 +23,14 @@
 #                                                       #
 # Version History                                       #
 #                                                       #
+# 1.1.0                                                 #
+#    - Added support for a couple more paper sizes      #
+#    - Added support for more consumables (Stapler,     #
+#      Staples, Saddle Staples and Puncher Waste)       #
+#    - Fixed display output for non measurable toners   #
+#    - Sorted display results so that CRITICAL are      #
+#      shown first then WARNING followed by OK          #
+#    - Cleaned up code                                  #
 # 1.0.3                                                 #
 #    - Added graph support for Grafana                  #
 # 1.0.2                                                 #
@@ -35,9 +43,9 @@
 # 1.0.0                                                 #
 #    - Forked from Franky Van Liedekerke version        #
 #    - Made consumables and trays all or nothing        #
-#       for simplicity.                                 #
+#      for simplicity.                                  #
 #    - Fixed status changes to properly work            #
-#       with Icinga.                                    #
+#      with Icinga.                                     #
 #    - Added perfdata collection for consumables        #
 #    - Added support for metric system output           #
 #    - Better formated output strings.                  #
@@ -72,7 +80,7 @@ use vars qw(
   $opt_snmpver $opt_warning $opt_critical $opt_messages $opt_model
   $opt_consum $opt_tray $opt_pagecount $opt_metric
 );
-my (@colors,@status,@trays,@strays,@percentages);
+my (@consumables,@status,@trays,@strays,@percentages,@mresults,@message);
 my ($state,$statuscode,$EXITSTRING);
 my ($i,$tcount,$traynumber,$critcount,$warncount) = 0;
 
@@ -81,7 +89,7 @@ my %STATUS_CODE =
 
 # config
 $PROGNAME    = $0;
-$VERSION     = '1.0.3';
+$VERSION     = '1.1.0';
 
 # init options
 $opt_version    = undef;
@@ -262,150 +270,249 @@ sub check_page_count {
         $EXITSTRING.= "|Pagecount=$PAGE_COUNT;;;;";
 }
 
+sub get_consumables {
+        my ($result,$Table,$Names,$CurCap,$MaxCap) = @_;
+        my %tmpprs = ();
+        my ($consumable, $curcap_pct);
+        my ($puncher, $found) = 0;
+
+        foreach my $key (keys(%$result)) {
+                my($base, $index) = ($key =~ /($Table\.\d+\.\d+)\.(\d+)/);
+                if($base eq $Names ) {
+                        $result->{$key} =~ s/[^\w\s]//g;
+                        $tmpprs{$index}{name} = $result->{$key};
+                }
+                if($base eq $CurCap) { $tmpprs{$index}{curcap} = $result->{$key}; }
+                if($base eq $MaxCap) { $tmpprs{$index}{maxcap} = $result->{$key}; }
+        }
+
+        foreach my $key (keys(%tmpprs)) {
+                my $name=$tmpprs{$key}{name};
+                ($consumable = $name) =~ s/(\w+).*/$1/;
+                if ($consumable eq "Canon") {
+                        my @split = split(' ',$consumable = $name);
+                        foreach my $cconsumable (@split) {
+                                given ($cconsumable) {
+                                        when (/Black|Yellow|Magenta|Cyan/i) { $consumable = $cconsumable; }
+                                        default { next; }
+                                }
+                        }
+                }
+                my $curcap=$tmpprs{$key}{curcap};
+                my $maxcap=$tmpprs{$key}{maxcap};
+
+                if ($name =~ m/Drum|Waste Toner/) {
+                        next;
+                }
+
+                given ($consumable) {
+                        when (/Black|Yellow|Magenta|Cyan/i) { $consumable = $consumable." Toner"; }
+                        when (/Clean/i) { $consumable = $consumable." Rollers"; }
+                        when (/Document/i) { $consumable = $consumable." Feeder Kit"; }
+                        when (/Maintenance/i) { $consumable = $consumable." Kit"; }
+                        when (/Transfer/i) { $consumable = $consumable." Unit"; }
+                        when (/Stapler/i) { }
+                        when (/Staples/i) { }
+                        when (/Saddle/i) { $consumable = $consumable." Staples"; }
+                        when (/Puncher/i) { $puncher = 1; $consumable = $consumable. " Waste"; }
+                        default { }
+                }
+
+                push (@consumables, $consumable);
+
+                $found=1;
+                if ($puncher == 1) {
+                        if ($curcap > 99) {
+                                $state = "CRITICAL";
+                        } elsif ($curcap >= 96) {
+                                $state = "WARNING";
+                        } else {
+                                $state = "OK";
+                        }
+                        push (@percentages, $curcap);
+                } else {
+                        if ($maxcap>0 && $curcap>0) {
+                                $curcap_pct=sprintf("%.2f",$curcap*100/$maxcap);
+                                if ($curcap_pct<=$opt_critical) {
+                                        # critical messages come first
+                                        $state = "CRITICAL";
+                                } elsif ($curcap_pct<=$opt_warning) {
+                                        $state = "WARNING";
+                                } else {
+                                        $state = "OK";
+                                }
+                                push (@percentages, $curcap_pct);
+                        } elsif ($maxcap == 100 && $curcap == 0) {
+                                $state = "CRITICAL";
+                                push (@percentages, 0);
+                        } else {
+                                $state = nonmeasurable($curcap);
+                                push (@percentages, $curcap);
+                        }
+                }
+                $puncher = 0;
+                push (@status, $state);
+        }
+}
+
+sub nonmeasurable {
+        my ($curcap) = @_;
+
+        # Our object is not measurable - it's either FULL or EMPTY (such as a punch dust box)
+        # Let's report on it's status using appropriate terminology
+        if ($curcap==-3) {
+                $state = "OK";
+        } elsif ($curcap==-2) {
+                # The value (-2) means unknown
+                $state = "WARNING";
+        } elsif ($curcap==0) {
+                # Something is empty!
+                $state = "CRITICAL";
+        }
+        return $state;
+}
+
+sub prioritize_results {
+
+        my ($metric) = @_;
+        my ($mcount,$scode);
+
+        if ((scalar @consumables) > 0) { $mcount = (scalar @consumables); }
+        if ((scalar @strays) > 0) { $mcount = (scalar @strays); }
+
+        $i = 0;
+
+        while ($mcount > 0) {
+
+                given ($status[$i]) {
+                        when (/CRITICAL/i) { $scode = 1; }
+                        when (/WARNING/i) { $scode = 2; }
+                        when (/OK/i) { $scode = 3; }
+                        default { }
+                }
+
+                if ($metric eq "consumables") {
+                        push @{ $mresults[$i] }, $scode, $status[$i], $consumables[$i], $message[$i];
+                }
+                if ($metric eq "trays") {
+                        push @{ $mresults[$i] }, $scode, $status[$i], $strays[$i][0], $message[$i];
+                }
+                $mcount--;
+                $i++;
+        }
+
+        @mresults = sort { $a->[0] cmp $b->[0] } @mresults;
+
+        $i = 0;
+        $mcount = (scalar @mresults);
+
+        while ($mcount > 0) {
+                print "$mresults[$i][1]: $mresults[$i][2]$mresults[$i][3]\n";
+                $mcount--;
+                $i++;
+        }
+
+}
+
 sub check_consumables {
         my $prTable = '.1.3.6.1.2.1.43.11.1.1';
         my $prNames = '.1.3.6.1.2.1.43.11.1.1.6.1';
         my $prCurCap = '.1.3.6.1.2.1.43.11.1.1.9.1';
         my $prMaxCap = '.1.3.6.1.2.1.43.11.1.1.8.1';
-        my $curcap_pct;
-        my %tmpprs = ();
+        my $prCTable = '.1.3.6.1.2.1.43.31.1.1';
+        my $prCNames = '.1.3.6.1.2.1.43.31.1.1.5.1';
+        my $prCCurCap = '.1.3.6.1.2.1.43.31.1.1.8.1';
+        my $prCMaxCap = '.1.3.6.1.2.1.43.31.1.1.7.1';
+        my ($consumable,$measurable,$perfcount);
         my $pct_remaining = "";
-        my $measurable = 0;
-        my $color;
 
-        my $found=0;
         my $result = $snmp->get_entries(-columns => [$prNames, $prCurCap, $prMaxCap]);
         if(not defined($result)) {
                 print "CRITICAL - snmp error: " . $snmp->error() . "\n";
                 exit($ERRORS{'CRITICAL'});
         }
-        foreach my $key (keys(%$result)) {
-                my($base, $index) = ($key =~ /($prTable\.\d+\.\d+)\.(\d+)/);
-                if($base eq $prNames) {
-                        # remove weird characters
-                        $result->{$key} =~ s/[^\w\s]//g;
-                        $tmpprs{$index}{name}  = $result->{$key};
-                }
-                if($base eq $prCurCap) { $tmpprs{$index}{curcap} = $result->{$key}; }
-                if($base eq $prMaxCap) { $tmpprs{$index}{maxcap} = $result->{$key}; }
-        }
 
-        foreach my $key (keys(%tmpprs)) {
-                my $name=$tmpprs{$key}{name};
-                ($color = $name) =~ s/(\w+).*/$1/;
-                if ($color eq "Canon") {
-                        my @split = split(' ',$color = $name);
-                        foreach my $ccolor (@split) {
-                                given ($ccolor) {
-                                        when (/Black|Yellow|Magenta|Cyan/i) { $color = $ccolor; }
-                                        default { next; }
-                                }
-                        }
-                }
-                if ($name =~ m/Drum|Waste/) {
-                        next;
-                }
+        my $cresult = $snmp->get_entries(-columns => [$prCNames, $prCCurCap, $prCMaxCap]);
 
-                given ($color) {
-                when (/Black|Yellow|Magenta|Cyan/i) { $color = $color." Toner"; }
-                        when (/Clean/i) { $color = $color." Rollers"; }
-                        when (/Document/i) { $color = $color." Feeder Kit"; }
-                        when (/Maintenance/i) { $color = $color." Kit"; }
-                        when (/Transfer/i) { $color = $color." Unit"; }
-                        default { }
-                }
+        get_consumables($result, $prTable, $prNames, $prCurCap, $prMaxCap);
+        get_consumables($cresult, $prCTable, $prCNames, $prCCurCap, $prCMaxCap);
 
-                push (@colors, $color);
-                my $curcap=$tmpprs{$key}{curcap};
-                my $maxcap=$tmpprs{$key}{maxcap};
-
-                $found=1;
-                if ($maxcap>0 && $curcap>0) {
-                        $curcap_pct=sprintf("%.2f",$curcap*100/$maxcap);
-                        if ($curcap_pct<=$opt_critical) {
-                                # critical messages come first
-                                $state = "CRITICAL";
-                        } elsif ($curcap_pct<=$opt_warning) {
-                                $state = "WARNING";
-                        } else {
-                                $state = "OK";
-                        }
-                        push (@percentages, $curcap_pct);
-                } elsif ($maxcap == 100 && $curcap == 0) {
-                        $state = "CRITICAL";
-                        $measurable = 1;
-                        push (@percentages, 0);
-                } else {
-                        # Our object is not measurable - it's either FULL or EMPTY (such as a punch dust box)
-                        #       Let's report on it's status using appropriate terminology
-                        if ($curcap==-3) {
-                                $state = "OK";
-                        } elsif ($curcap==-2) {
-                                # The value (-2) means unknown
-                                $state = "WARNING";
-                        } elsif ($curcap==0) {
-                                # Something is empty!
-                                $state = "CRITICAL";
-                        }
-                }
-                push (@status, $state);
-        }
-
-        $tcount = (scalar @colors);
+        $tcount = (scalar @consumables);
         if (@percentages != 0 ) { $measurable = 1; }
-        if ($measurable) { $pct_remaining = " is at ".$percentages[0]. "% remaining."; }
-        $EXITSTRING = $status[0].": ".$colors[0].$pct_remaining."\n";
+        if ($measurable) {
+                if ($consumables[0] eq "Puncher Waste") {
+                        $pct_remaining = " is ".$percentages[0]. "% full.";
+                } elsif ($consumables[0] eq "Stapler") {
+                        $pct_remaining = "";
+                } elsif ($percentages[$i] eq "-2") {
+                        $pct_remaining = " levels cannot be measured.";
+                } else {
+                        $pct_remaining = " is at ".$percentages[0]. "% remaining.";
+                }
+                push (@message, $pct_remaining);
+        }
         my $perfcount = $tcount;
         if ($tcount > 1) {
                 $tcount--;
                 while ($tcount > 0) {
                         $i++;
-                        if ($colors[$i] eq "Waste") {
+                        if ($consumables[$i] eq "Waste") {
                                 $tcount--;
                                 next;
                         }
-                        if ($measurable) { $pct_remaining = " is at ".$percentages[$i]. "% remaining."; }
-                        $EXITSTRING.= $status[$i].": ".$colors[$i].$pct_remaining."\n";
+                        if ($measurable) {
+                                if ($consumables[$i] eq "Puncher Waste") {
+                                        $pct_remaining = " is ".$percentages[$i]. "% full.";
+                                } elsif ($consumables[$i] eq "Stapler") {
+                                        $pct_remaining = "";
+                                } elsif ($percentages[$i] eq "-2") {
+                                        $pct_remaining = "cannot be measured.";
+                                } else {
+                                        $pct_remaining = " is at ".$percentages[$i]. "% remaining.";
+                                }
+                        }
+                        push (@message, $pct_remaining);
                         $tcount--;
                 }
         }
+        prioritize_results('consumables');
         $i = 0;
         $EXITSTRING.= "|";
         while ($perfcount > 0) {
-                if ($colors[$i] eq "Waste") {
+                if ($consumables[$i] eq "Waste") {
                         $i++;
                         $perfcount--;
                         next;
                 }
-                ($color = $colors[$i]) =~ s/ /_/g;
+                ($consumable = $consumables[$i]) =~ s/ /_/g;
                 if ($measurable) {
-                        $EXITSTRING.= $color."=".$percentages[$i];
+                        if ($consumable eq "Stapler") {
+                                given ($status[$i]) {
+                                        when (/CRITICAL/i) { $EXITSTRING.= $consumable."=0"; }
+                                        when (/OK/i) { $EXITSTRING.= $consumable."=100"; }
+                                }
+                        } elsif ($percentages[$i] eq "-2") {
+                        } else {
+                                $EXITSTRING.= $consumable."=".$percentages[$i];
+                        }
                 } else {
                         if ($status[$i] == "CRITICAL") {
-                                $EXITSTRING.= $color."=0";
+                                $EXITSTRING.= $consumable."=0";
                         } else {
-                                $EXITSTRING.= $color."=1";
+                                $EXITSTRING.= $consumable."=1";
                         }
                 }
                 $i++;
                 $perfcount--;
                 if ($perfcount == 0) { $EXITSTRING.= ";;;;"; } else { $EXITSTRING.=";;;; "; }
         }
-
 }
 
 sub check_paper_trays {
 
         my $found=0;
         my %tmpprs = ();
-
-        my $name;
-        my $cap;
-        my $tstatus;
-        my $maxcap;
-        my $feeddim;
-        my $xfeeddim;
-
+        my ($name,$cap,$tstatus,$traymessage,$maxcap,$feeddim,$xfeeddim);
         my $trayTable=".1.3.6.1.2.1.43.8.2.1";
         my $trayCap=".1.3.6.1.2.1.43.8.2.1.10.1";
         my $trayStatus=".1.3.6.1.2.1.43.8.2.1.11.1";
@@ -470,9 +577,11 @@ sub check_paper_trays {
 
                 given ($feeddim) {
                         when (/-2/i) { $feeddim = "Any"; }
+                        when (/72500|184150/i) { if ($opt_metric) { $feeddim = "184mm"; } else { $feeddim = "7.25in"; } }
                         when (/82700|210058/i) { if ($opt_metric) { $feeddim = "210mm"; } else { $feeddim = "8.27in"; } }
                         when (/85000|215900/i) { if ($opt_metric) { $feeddim = "216mm"; } else { $feeddim = "8.5in"; } }
                         when (/98400|249936/i) { if ($opt_metric) { $feeddim = "250mm"; } else { $feeddim = "9.84in"; } }
+                        when (/105000|266700/i) { if ($opt_metric) { $feeddim = "267mm"; } else { $feeddim = "10.5in"; } }
                         when (/110000|279400/i) { if ($opt_metric) { $feeddim = "279mm"; } else { $feeddim = "11in"; } }
                         when (/116900|296926/i) { if ($opt_metric) { $feeddim = "297mm"; } else { $feeddim = "11.69in"; } }
                         when (/139000|353060/i) { if ($opt_metric) { $feeddim = "353mm"; } else { $feeddim = "13.90in"; } }
@@ -483,9 +592,11 @@ sub check_paper_trays {
                 }
                 given ($xfeeddim) {
                         when (/-2/i) { $xfeeddim = "Any"; }
+                        when (/72500|184150/i) { if ($opt_metric) { $xfeeddim = "184mm"; } else { $xfeeddim = "7.25in"; } }
                         when (/82700|210058/i) { if ($opt_metric) { $xfeeddim = "210mm"; } else { $xfeeddim = "8.27in"; } }
                         when (/85000|215900/i) { if ($opt_metric) { $xfeeddim = "216mm"; } else { $xfeeddim = "8.5in"; } }
                         when (/98400|249936/i) { if ($opt_metric) { $xfeeddim = "250mm"; } else { $xfeeddim = "9.84in"; } }
+                        when (/105000|266700/i) { if ($opt_metric) { $xfeeddim = "267mm"; } else { $xfeeddim = "10.5in"; } }
                         when (/110000|279400/i) { if ($opt_metric) { $xfeeddim = "279mm"; } else { $xfeeddim = "11in"; } }
                         when (/116900|296926/i) { if ($opt_metric) { $xfeeddim = "297mm"; } else { $xfeeddim = "11.69in"; } }
                         when (/139000|353060/i) { if ($opt_metric) { $xfeeddim = "353mm"; } else { $xfeeddim = "13.90in"; } }
@@ -498,41 +609,56 @@ sub check_paper_trays {
                 if ($cap == -3) {
                         # The value (-3) means that the printer knows that at least one unit remains.
                         $state = "OK";
-                        $EXITSTRING.= "OK: $name ($xfeeddim x $feeddim)\n";
+                        $traymessage = " ($xfeeddim x $feeddim)";
                 } elsif ($cap==-2) {
                         # The value (-2) means unknown
                         # so lets check the tray status instead
                         given ($tstatus) {
-                                when (/0/i) { if ($model =~ m/Canon/) { $state = "OK"; $EXITSTRING.= "OK: $name ($xfeeddim x $feeddim)\n"; } }
-                                when (/9/i) { if ($model =~ m/HP/) { $state = "OK"; $EXITSTRING.= "OK: $name ($xfeeddim x $feeddim)\n"; } }
+                                when (/0/i) {
+                                        if ($model =~ m/Canon/) {
+                                                $state = "OK";
+                                                $traymessage = " ($xfeeddim x $feeddim)";
+                                        }
+                                }
+                                when (/9/i) {
+                                        if ($model =~ m/HP/) {
+                                                $state = "OK";
+                                                $traymessage = " ($xfeeddim x $feeddim)";
+                                        }
+                                }
                                 # still unknown so we'll mark it warning because we just don't know
-                                default { $state = "WARNING"; $EXITSTRING.= "WARNING: ".$name." is in UNKNOWN status.\n"; }
+                                default {
+                                        $state = "WARNING";
+                                        $traymessage = " is in UNKNOWN status.";
+                                }
                         }
                 } elsif ($cap==0) {
                         # 0 means there is no paper left! This is our only critical value.
                         # first lets check to see if it's a bypass tray, we'll always assume Tray 1 is such.
                         if ($name eq "Tray 1" || "Stack Bypass") {
                                         $state = "OK";
-                                        $EXITSTRING.= "OK: ".$name. "\n";
+                                        $traymessage = "";
                                 } else {
                                         $state = "CRITICAL";
-                                        $EXITSTRING.="CRITICAL: $name ($xfeeddim x $feeddim)\n";
+                                        $traymessage = " ($xfeeddim x $feeddim)";
                                 }
                 } else {
                         ($maxcap==0) && ($maxcap=1);
                         my $cap_pct=sprintf("%.2f",$cap*100/$maxcap);
                         if ($cap_pct <= $opt_warning) {
                                 $state = "WARNING";
-                                $EXITSTRING.="WARNING: $name ($xfeeddim x $feeddim) is at $cap_pct% paper remaining.\n";
+                                $traymessage = " ($xfeeddim x $feeddim) is at $cap_pct% paper remaining.";
                         } else {
                                 $state = "OK";
-                                $EXITSTRING.= "OK: $name ($xfeeddim x $feeddim)\n";
+                                $traymessage = " ($xfeeddim x $feeddim)";
                         }
                 }
                 push (@status, $state);
+                push (@message, $traymessage);
                 $tcount--;
                 $i++;
         }
+        prioritize_results('trays');
         $i = 0;
         $EXITSTRING.= "|";
         while ($perfcount > 0) {
@@ -583,7 +709,6 @@ elsif ($warncount > 0) { $state = "WARNING"; }
 else { $state = "OK"; }
 
 stop($EXITSTRING, $state);
-
 
 sub stop {
         my $result = shift;
