@@ -3,7 +3,7 @@
 #                                                       #
 #                                                       #
 #      SNMP Printer Check Plugin for Icinga             #
-#            Version 1.1.1 (January 13, 2020)           #
+#            Version 1.1.2 (January 15, 2020)           #
 #                by Rob McLoughlin                      #
 #         E-mail: rmcloughlin@outlook.com               #
 #                                                       #
@@ -23,6 +23,9 @@
 #                                                       #
 # Version History                                       #
 #                                                       #
+# 1.1.2                                                 #
+#    - Replaced Given/When code with if/else statements #
+#      for better compatibility.                        #
 # 1.1.1                                                 #
 #    - Fixed a bug with HP Color LaserJet Pro M454dw    #
 #      toner not reporting correctly when levele are    #
@@ -96,7 +99,7 @@ my %STATUS_CODE =
 
 # config
 $PROGNAME    = $0;
-$VERSION     = '1.1.1';
+$VERSION     = '1.1.2';
 
 # init options
 $opt_version    = undef;
@@ -299,10 +302,8 @@ sub get_consumables {
                 if ($consumable eq "Canon") {
                         my @split = split(' ',$consumable = $name);
                         foreach my $cconsumable (@split) {
-                                given ($cconsumable) {
-                                        when (/Black|Yellow|Magenta|Cyan/i) { $consumable = $cconsumable; }
-                                        default { next; }
-                                }
+                                if ($cconsumable =~ m/Black|Yellow|Magenta|Cyan/) { $consumable = $cconsumable; }
+                                else { next; }
                         }
                 }
                 my $curcap=$tmpprs{$key}{curcap};
@@ -312,19 +313,16 @@ sub get_consumables {
                         next;
                 }
 
-                given ($consumable) {
-                        when (/Black|Yellow|Magenta|Cyan/i) { $consumable = $consumable." Toner"; }
-                        when (/Magneta/i) { $consumable = "Magenta Toner"; }  # New HP OID has a typo
-                        when (/Clean/i) { $consumable = $consumable." Rollers"; }
-                        when (/Document/i) { $consumable = $consumable." Feeder Kit"; }
-                        when (/Maintenance/i) { $consumable = $consumable." Kit"; }
-                        when (/Transfer/i) { $consumable = $consumable." Unit"; }
-                        when (/Stapler/i) { }
-                        when (/Staples/i) { }
-                        when (/Saddle/i) { $consumable = $consumable." Staples"; }
-                        when (/Puncher/i) { $puncher = 1; $consumable = $consumable. " Waste"; }
-                        default { }
-                }
+                if ($consumable =~ m/Black|Yellow|Magenta|Cyan/) { $consumable = $consumable." Toner"; }
+                if ($consumable eq 'Magneta') { $consumable = "Magenta Toner"; }  # New HP OID has a typo
+                if ($consumable eq 'Clean') { $consumable = $consumable." Rollers"; }
+                if ($consumable eq 'Document') { $consumable = $consumable." Feeder Kit"; }
+                if ($consumable eq 'Maintenance') { $consumable = $consumable." Kit"; }
+                if ($consumable eq 'Transfer') { $consumable = $consumable." Unit"; }
+                if ($consumable eq 'Stapler') { }
+                if ($consumable eq 'Staples') { }
+                if ($consumable eq 'Saddle') { $consumable = $consumable." Staples"; }
+                if ($consumable eq 'Puncher') { $puncher = 1; $consumable = $consumable. " Waste"; }
 
                 push (@consumables, $consumable);
 
@@ -375,7 +373,7 @@ sub nonmeasurable {
                 $state = "OK";
         } elsif ($curcap==-2) {
                 # The value (-2) means unknown
-                if ($name =~ m/W2020A|W2021A|W2022A|W2023A/) {
+                if ($name =~ m/W2020A|W2021A|W2022A|W2023A/) { # HP Color LaserJet Pro M454dw Toner
                         $state = "CRITICAL";
                         push (@measurables, '1');
                 } else { $state = "WARNING"; push (@measurables, '0'); }
@@ -397,12 +395,9 @@ sub prioritize_results {
 
         while ($mcount > 0) {
 
-                given ($status[$i]) {
-                        when (/CRITICAL/i) { $scode = 1; }
-                        when (/WARNING/i) { $scode = 2; }
-                        when (/OK/i) { $scode = 3; }
-                        default { }
-                }
+                if ($status[$i] eq 'CRITICAL') { $scode = 1; }
+                if ($status[$i] eq 'WARNING') { $scode = 2; }
+                if ($status[$i] eq 'OK') { $scode = 3; }
 
                 if ($metric eq "consumables") {
                         push @{ $mresults[$i] }, $scode, $status[$i], $consumables[$i], $message[$i];
@@ -418,13 +413,11 @@ sub prioritize_results {
 
         $i = 0;
         $mcount = (scalar @mresults);
-
         while ($mcount > 0) {
                 print "$mresults[$i][1]: $mresults[$i][2]$mresults[$i][3]\n";
                 $mcount--;
                 $i++;
         }
-
 }
 
 sub check_consumables {
@@ -460,7 +453,7 @@ sub check_consumables {
                 } elsif ($percentages[$i] eq "-2") {
                         if ($measurables[$i] eq "0") {
                                 $pct_remaining = " levels cannot be measured.";
-                        } else { $pct_remaining = " is at 0% remaining"; }
+                        } else { $pct_remaining = " is at 0% remaining."; }
                 } else {
                         $pct_remaining = " is at ".$percentages[0]. "% remaining.";
                 }
@@ -476,7 +469,6 @@ sub check_consumables {
                                 next;
                         }
                         if ($measurable) {
-#                               print "$consumables[$i] IS $measurables[$i]\n";
                                 if ($consumables[$i] eq "Puncher Waste") {
                                         $pct_remaining = " is ".$percentages[$i]. "% full.";
                                 } elsif ($consumables[$i] eq "Stapler") {
@@ -484,7 +476,7 @@ sub check_consumables {
                                 } elsif ($percentages[$i] eq "-2") {
                                         if ($measurables[$i] eq "0") {
                                                 $pct_remaining = " levels cannot be measured.";
-                                        } else { $pct_remaining = " is at 0% remaining"; }
+                                        } else { $pct_remaining = " is at 0% remaining."; }
                                 } else {
                                         $pct_remaining = " is at ".$percentages[$i]. "% remaining.";
                                 }
@@ -505,10 +497,8 @@ sub check_consumables {
                 ($consumable = $consumables[$i]) =~ s/ /_/g;
                 if ($measurable) {
                         if ($consumable eq "Stapler") {
-                                given ($status[$i]) {
-                                        when (/CRITICAL/i) { $EXITSTRING.= $consumable."=0"; }
-                                        when (/OK/i) { $EXITSTRING.= $consumable."=100"; }
-                                }
+                                if ($status[$i] eq 'CRITICAL') { $EXITSTRING.= $consumable."=0"; }
+                                elsif ($status[$i] eq 'OK') { $EXITSTRING.= $consumable."=100"; }
                         } elsif ($percentages[$i] eq "-2") {
                                 if ($measurables[$i] eq "0") { }
                                 else { $EXITSTRING.= "$consumable=0"; }
@@ -594,36 +584,32 @@ sub check_paper_trays {
                 $xfeeddim       = $strays[$i][4];
                 $tstatus        = $strays[$i][5];
 
-                given ($feeddim) {
-                        when (/-2/i) { $feeddim = "Any"; }
-                        when (/72500|184150/i) { if ($opt_metric) { $feeddim = "184mm"; } else { $feeddim = "7.25in"; } }
-                        when (/82700|210058/i) { if ($opt_metric) { $feeddim = "210mm"; } else { $feeddim = "8.27in"; } }
-                        when (/85000|215900/i) { if ($opt_metric) { $feeddim = "216mm"; } else { $feeddim = "8.5in"; } }
-                        when (/98400|249936/i) { if ($opt_metric) { $feeddim = "250mm"; } else { $feeddim = "9.84in"; } }
-                        when (/105000|266700/i) { if ($opt_metric) { $feeddim = "267mm"; } else { $feeddim = "10.5in"; } }
-                        when (/110000|279400/i) { if ($opt_metric) { $feeddim = "279mm"; } else { $feeddim = "11in"; } }
-                        when (/116900|296926/i) { if ($opt_metric) { $feeddim = "297mm"; } else { $feeddim = "11.69in"; } }
-                        when (/139000|353060/i) { if ($opt_metric) { $feeddim = "353mm"; } else { $feeddim = "13.90in"; } }
-                        when (/140000|355600/i) { if ($opt_metric) { $feeddim = "356mm"; } else { $feeddim = "14in"; } }
-                        when (/165400|420116/i) { if ($opt_metric) { $feeddim = "420mm"; } else { $feeddim = "16.54in"; } }
-                        when (/170000|431800/i) { if ($opt_metric) { $feeddim = "432mm"; } else { $feeddim = "17in"; } }
-                        default { };
-                }
-                given ($xfeeddim) {
-                        when (/-2/i) { $xfeeddim = "Any"; }
-                        when (/72500|184150/i) { if ($opt_metric) { $xfeeddim = "184mm"; } else { $xfeeddim = "7.25in"; } }
-                        when (/82700|210058/i) { if ($opt_metric) { $xfeeddim = "210mm"; } else { $xfeeddim = "8.27in"; } }
-                        when (/85000|215900/i) { if ($opt_metric) { $xfeeddim = "216mm"; } else { $xfeeddim = "8.5in"; } }
-                        when (/98400|249936/i) { if ($opt_metric) { $xfeeddim = "250mm"; } else { $xfeeddim = "9.84in"; } }
-                        when (/105000|266700/i) { if ($opt_metric) { $xfeeddim = "267mm"; } else { $xfeeddim = "10.5in"; } }
-                        when (/110000|279400/i) { if ($opt_metric) { $xfeeddim = "279mm"; } else { $xfeeddim = "11in"; } }
-                        when (/116900|296926/i) { if ($opt_metric) { $xfeeddim = "297mm"; } else { $xfeeddim = "11.69in"; } }
-                        when (/139000|353060/i) { if ($opt_metric) { $xfeeddim = "353mm"; } else { $xfeeddim = "13.90in"; } }
-                        when (/140000|355600/i) { if ($opt_metric) { $xfeeddim = "356mm"; } else { $xfeeddim = "14in"; } }
-                        when (/165400|420116/i) { if ($opt_metric) { $xfeeddim = "420mm"; } else { $xfeeddim = "16.54in"; } }
-                        when (/170000|431800/i) { if ($opt_metric) { $xfeeddim = "432mm"; } else { $xfeeddim = "17in"; } }
-                        default { };
-                }
+                if ($feeddim eq '-2') { $feeddim = "Any"; }
+                if ($feeddim =~ m/72500|184150/) { { if ($opt_metric) { $feeddim = "184mm"; } else { $feeddim = "7.25in"; } } }
+                if ($feeddim =~ m/82700|210058/) { { if ($opt_metric) { $feeddim = "210mm"; } else { $feeddim = "8.27in"; } } }
+                if ($feeddim =~ m/85000|215900/) { { if ($opt_metric) { $feeddim = "216mm"; } else { $feeddim = "8.5in"; } } }
+                if ($feeddim =~ m/98400|249936/) { { if ($opt_metric) { $feeddim = "250mm"; } else { $feeddim = "9.84in"; } } }
+                if ($feeddim =~ m/105000|266700/) { { if ($opt_metric) { $feeddim = "267mm"; } else { $feeddim = "10.5in"; } } }
+                if ($feeddim =~ m/110000|279400/) { { if ($opt_metric) { $feeddim = "279mm"; } else { $feeddim = "11in"; } } }
+                if ($feeddim =~ m/116900|296926/) { { if ($opt_metric) { $feeddim = "297mm"; } else { $feeddim = "11.69in"; } } }
+                if ($feeddim =~ m/139000|353060/) { { if ($opt_metric) { $feeddim = "353mm"; } else { $feeddim = "13.90in"; } } }
+                if ($feeddim =~ m/140000|355600/) { { if ($opt_metric) { $feeddim = "356mm"; } else { $feeddim = "14in"; } } }
+                if ($feeddim =~ m/165400|420116/) { { if ($opt_metric) { $feeddim = "420mm"; } else { $feeddim = "16.54in"; } } }
+                if ($feeddim =~ m/170000|431800/) { { if ($opt_metric) { $feeddim = "432mm"; } else { $feeddim = "17in"; } } }
+
+
+                if ($xfeeddim eq '-2') { $xfeeddim = "Any"; }
+                if ($xfeeddim =~ m/72500|184150/) { { if ($opt_metric) { $xfeeddim = "184mm"; } else { $xfeeddim = "7.25in"; } } }
+                if ($xfeeddim =~ m/82700|210058/) { { if ($opt_metric) { $xfeeddim = "210mm"; } else { $xfeeddim = "8.27in"; } } }
+                if ($xfeeddim =~ m/85000|215900/) { { if ($opt_metric) { $xfeeddim = "216mm"; } else { $xfeeddim = "8.5in"; } } }
+                if ($xfeeddim =~ m/98400|249936/) { { if ($opt_metric) { $xfeeddim = "250mm"; } else { $xfeeddim = "9.84in"; } } }
+                if ($xfeeddim =~ m/105000|266700/) { { if ($opt_metric) { $xfeeddim = "267mm"; } else { $xfeeddim = "10.5in"; } } }
+                if ($xfeeddim =~ m/110000|279400/) { { if ($opt_metric) { $xfeeddim = "279mm"; } else { $xfeeddim = "11in"; } } }
+                if ($xfeeddim =~ m/116900|296926/) { { if ($opt_metric) { $xfeeddim = "297mm"; } else { $xfeeddim = "11.69in"; } } }
+                if ($xfeeddim =~ m/139000|353060/) { { if ($opt_metric) { $xfeeddim = "353mm"; } else { $xfeeddim = "13.90in"; } } }
+                if ($xfeeddim =~ m/140000|355600/) { { if ($opt_metric) { $xfeeddim = "356mm"; } else { $xfeeddim = "14in"; } } }
+                if ($xfeeddim =~ m/165400|420116/) { { if ($opt_metric) { $xfeeddim = "420mm"; } else { $xfeeddim = "16.54in"; } } }
+                if ($xfeeddim =~ m/170000|431800/) { { if ($opt_metric) { $xfeeddim = "432mm"; } else { $xfeeddim = "17in"; } } }
 
                 if ($cap == -3) {
                         # The value (-3) means that the printer knows that at least one unit remains.
@@ -632,24 +618,20 @@ sub check_paper_trays {
                 } elsif ($cap==-2) {
                         # The value (-2) means unknown
                         # so lets check the tray status instead
-                        given ($tstatus) {
-                                when (/0/i) {
-                                        if ($model =~ m/Canon/) {
-                                                $state = "OK";
-                                                $traymessage = " ($xfeeddim x $feeddim)";
-                                        }
+                        if ($tstatus eq '0') {
+                                if ($model =~ m/Canon/) {
+                                        $state = "OK";
+                                        $traymessage = " ($xfeeddim x $feeddim)";
                                 }
-                                when (/9/i) {
-                                        if ($model =~ m/HP/) {
-                                                $state = "OK";
-                                                $traymessage = " ($xfeeddim x $feeddim)";
-                                        }
+                        } elsif ($tstatus eq '9') {
+                                if ($model =~ m/HP/) {
+                                        $state = "OK";
+                                        $traymessage = " ($xfeeddim x $feeddim)";
                                 }
+                        } else {
                                 # still unknown so we'll mark it warning because we just don't know
-                                default {
-                                        $state = "WARNING";
-                                        $traymessage = " is in UNKNOWN status.";
-                                }
+                                $state = "WARNING";
+                                $traymessage = " is in UNKNOWN status.";
                         }
                 } elsif ($cap==0) {
                         # 0 means there is no paper left! This is our only critical value.
@@ -682,11 +664,9 @@ sub check_paper_trays {
         $EXITSTRING.= "|";
         while ($perfcount > 0) {
                 (my $tray = $strays[$i][0]) =~ s/ /_/g;
-                given ($status[$i]) {
-                        when (/CRITICAL/i) { $EXITSTRING.= $tray."=0"; }
-                        when (/WARNING/i) { $EXITSTRING.= $tray."=1"; }
-                        when (/OK/i) { $EXITSTRING.= $tray."=2"; }
-                }
+                if ($status[$i] eq 'CRITICAL') { $EXITSTRING.= $tray."=0"; }
+                if ($status[$i] eq 'WARNING') { $EXITSTRING.= $tray."=1"; }
+                if ($status[$i] eq 'OK') { $EXITSTRING.= $tray."=2"; }
                 $i++;
                 $perfcount--;
                 if ($perfcount == 0) { $EXITSTRING.= ";;;;"; } else { $EXITSTRING.=";;;; "; }
@@ -728,7 +708,6 @@ elsif ($warncount > 0) { $state = "WARNING"; }
 else { $state = "OK"; }
 
 stop($EXITSTRING, $state);
-
 sub stop {
         my $result = shift;
         my $exit_code = shift;
