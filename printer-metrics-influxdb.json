@@ -1,4 +1,34 @@
 {
+  "__inputs": [
+    {
+      "name": "DS_INFLUXDB",
+      "label": "InfluxDB",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "influxdb",
+      "pluginName": "InfluxDB"
+    }
+  ],
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "6.5.3"
+    },
+    {
+      "type": "panel",
+      "id": "graph",
+      "name": "Graph",
+      "version": ""
+    },
+    {
+      "type": "datasource",
+      "id": "influxdb",
+      "name": "InfluxDB",
+      "version": "1.0.0"
+    }
+  ],
   "annotations": {
     "list": [
       {
@@ -15,18 +45,19 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 8,
-  "iteration": 1578928890832,
+  "id": null,
+  "iteration": 1579548898302,
   "links": [],
   "panels": [
     {
       "aliasColors": {
-        "Pagecount": "#60f7c5"
+        "Black-and-White": "#000000",
+        "Color": "#60f7c5"
       },
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "InfluxDB",
+      "datasource": "${DS_INFLUXDB}",
       "fill": 0,
       "fillGradient": 0,
       "gridPos": {
@@ -62,7 +93,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "alias": "Pagecount",
+          "alias": "Black-and-White",
           "groupBy": [],
           "measurement": "snmp_printer",
           "orderByTime": "ASC",
@@ -90,6 +121,50 @@
               "key": "service",
               "operator": "=",
               "value": "Pagecount"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "Black-and-White"
+            }
+          ]
+        },
+        {
+          "alias": "Color",
+          "groupBy": [],
+          "measurement": "snmp_printer",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "B",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "hostname",
+              "operator": "=~",
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Pagecount"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "Color"
             }
           ]
         }
@@ -151,7 +226,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "InfluxDB",
+      "datasource": "${DS_INFLUXDB}",
       "fill": 0,
       "fillGradient": 0,
       "gridPos": {
@@ -593,7 +668,7 @@
       "cacheTimeout": null,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "InfluxDB",
+      "datasource": "${DS_INFLUXDB}",
       "fill": 0,
       "fillGradient": 0,
       "gridPos": {
@@ -1188,11 +1263,8 @@
     "list": [
       {
         "allValue": null,
-        "current": {
-          "text": "Aruba AP Controller",
-          "value": "Aruba AP Controller"
-        },
-        "datasource": "InfluxDB",
+        "current": {},
+        "datasource": "${DS_INFLUXDB}",
         "definition": "SHOW TAG VALUES WITH KEY = \"hostname\"",
         "hide": 0,
         "includeAll": false,
@@ -1213,11 +1285,8 @@
       },
       {
         "allValue": null,
-        "current": {
-          "text": "AP Bandwidth",
-          "value": "AP Bandwidth"
-        },
-        "datasource": "InfluxDB",
+        "current": {},
+        "datasource": "${DS_INFLUXDB}",
         "definition": "SHOW TAG VALUES WITH KEY = \"service\" where hostname =~ /^$hostname$/",
         "hide": 0,
         "includeAll": false,
@@ -1238,11 +1307,8 @@
       },
       {
         "allValue": null,
-        "current": {
-          "text": "aruba_ap",
-          "value": "aruba_ap"
-        },
-        "datasource": "InfluxDB",
+        "current": {},
+        "datasource": "${DS_INFLUXDB}",
         "definition": "SHOW MEASUREMENTS where hostname =~ /^$hostname$/",
         "hide": 0,
         "includeAll": false,
@@ -1284,5 +1350,5 @@
   "timezone": "",
   "title": "printer-metrics",
   "uid": "NPbC04YZk",
-  "version": 40
+  "version": 43
 }
