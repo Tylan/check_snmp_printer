@@ -613,13 +613,25 @@ sub check_paper_trays {
                 if ($feeddim eq '-2') { $feeddim = "Any"; }
                 if ($xfeeddim eq '-2') { $xfeeddim = "Any"; }
 
+                $model = check_model(2);
+
                 if (($feeddim || $xfeeddim) ne 'Any') {
-                        if ($opt_metric) {
-                                $feeddim = sprintf("%.0f", $feeddim * .001)."mm";
-                                $xfeeddim = sprintf("%.0f", $xfeeddim * .001)."mm";
+                        if ($model =~ m/Canon/) {
+                                if ($opt_metric) {
+                                        $feeddim = sprintf("%.0f", $feeddim * .001)."mm";
+                                        $xfeeddim = sprintf("%.0f", $xfeeddim * .001)."mm";
+                                } else {
+                                        $feeddim = sprintf("%.2f", (($feeddim / 2.54) * .0001))."in";
+                                        $xfeeddim = sprintf("%.2f", (($xfeeddim / 2.54) * .0001))."in";
+                                }
                         } else {
-                                $feeddim = sprintf("%.2f", (($feeddim / 2.54) * .0001))."in";
-                                $xfeeddim = sprintf("%.2f", (($xfeeddim / 2.54) * .0001))."in";
+                                if ($opt_metric) {
+                                        $feeddim = sprintf("%.0f", (($feeddim * 2.54) * .001))."mm";
+                                        $xfeeddim = sprintf("%.0f", (($xfeeddim * 2.54) * .001))."mm";
+                                } else {
+                                        $feeddim = sprintf("%.2f", $feeddim * .0001)."in";
+                                        $xfeeddim = sprintf("%.2f", $xfeeddim  * .0001)."in";
+                                }
                         }
                 }
 
