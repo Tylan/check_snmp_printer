@@ -3,7 +3,7 @@
 #                                                       #
 #                                                       #
 #      SNMP Printer Check Plugin for Icinga             #
-#            Version 1.1.3 (January 20, 2020)           #
+#            Version 1.1.4 (March 31, 2020)             #
 #                by Rob McLoughlin                      #
 #         E-mail: rmcloughlin@outlook.com               #
 #                                                       #
@@ -47,9 +47,10 @@ use Data::Dumper;
 # globals
 use vars qw(
   $PROGNAME $VERSION %procs $snmp $errstr $oid
-  $opt_version $opt_help $opt_timeout $opt_host $opt_community
-  $opt_snmpver $opt_warning $opt_critical $opt_messages $opt_model
-  $opt_consum $opt_tray $opt_pagecount $opt_metric
+  $opt_version $opt_help $opt_timeout $opt_retries $opt_host
+  $opt_community $opt_snmpver $opt_warning $opt_critical
+  $opt_messages $opt_model $opt_consum $opt_tray $opt_pagecount
+  $opt_metric
 );
 my (@consumables,@status,@trays,@strays,@percentages,@mresults,@message,@measurables);
 my ($state,$statuscode,$EXITSTRING);
@@ -60,12 +61,13 @@ my %STATUS_CODE =
 
 # config
 $PROGNAME    = $0;
-$VERSION     = '1.1.3';
+$VERSION     = '1.1.4';
 
 # init options
 $opt_version    = undef;
 $opt_help       = undef;
 $opt_timeout    = $TIMEOUT;
+$opt_retries    = 3;
 $opt_host       = undef;
 $opt_community  = 'public';
 $opt_snmpver    = 1;
@@ -84,6 +86,7 @@ GetOptions(
   'V|version'           => \$opt_version,
   'h|help'              => \$opt_help,
   't|timeout=i'         => \$opt_timeout,
+  'r|retries=i'         => \$opt_retries,
   'H|host=s'            => \$opt_host,
   'C|community=s'       => \$opt_community,
   'v|snmpver=s'         => \$opt_snmpver,
@@ -185,6 +188,8 @@ Optional Arguments:
     The critical limit level to alert on.
  -t, --timeout=INTEGER
     Number of seconds to wait for a response.
+ -r, --retries=INTEGER
+    Number of retries to try before timing out. Default: 3
  --metric
     Converts output to metric.  Default: imperial
 EOB
@@ -200,7 +205,7 @@ sub check_model {
                 $oid=".1.3.6.1.2.1.25.3.2.1.3.1";
                 $result=$snmp->get_request(-varbindlist => [$oid]);
                 ($result) && ($MODEL=$result->{$oid});
-                if ($pcheck == 2) { return $MODEL; }
+                if ($pcheck == 2) { return lc $MODEL; }
         }
         if ($pcheck == 1) {
                 $oid=".1.3.6.1.2.1.43.5.1.1.17";
@@ -238,12 +243,11 @@ sub check_page_count {
             $m_a3,$m_a4,$c_a3,$c_a4,$MonoPagecount,$ColorPagecount);
 
         $model = check_model(2);
-
-        if ($model =~ m/HP/) {
+        if ($model =~ m/hp/) {
                 $c_oid='.1.3.6.1.4.1.11.2.3.9.4.2.1.4.1.2.7.0';
                 $m_oid='.1.3.6.1.4.1.11.2.3.9.4.2.1.4.1.2.6.0';
         }
-        if ($model =~ m/Canon/) {
+        if ($model =~ m/canon/) {
                 $t_oid='.1.3.6.1.4.1.1602.1.11.1.3.1.4.101';
                 $c_oid='.1.3.6.1.4.1.1602.1.11.1.3.1.4.105';
                 $m_oid='.1.3.6.1.4.1.1602.1.11.1.3.1.4.108';
@@ -252,11 +256,11 @@ sub check_page_count {
                 $c_a3_oid='.1.3.6.1.4.1.1602.1.11.1.3.1.4.222';
                 $c_a4_oid='.1.3.6.1.4.1.1602.1.11.1.3.1.4.223';
         }
-        if ($model =~ m/Xerox/) {
+        if ($model =~ m/xerox/) {
                 $c_oid='.1.3.6.1.4.1.253.8.53.13.2.1.6.1.20.33';
                 $m_oid='.1.3.6.1.4.1.253.8.53.13.2.1.6.1.20.34';
         }
-        if ($model =~ m/Lexmark/) {
+        if ($model =~ m/lexmark/) {
                 $c_oid='.1.3.6.1.4.1.641.2.1.5.3';
                 $m_oid='.1.3.6.1.4.1.641.2.1.5.2';
         }
@@ -272,10 +276,13 @@ sub check_page_count {
                 $MonoPagecount = $m_a3 + $m_a4;
         } else {
                 $result=$snmp->get_request(-varbindlist => [$m_oid]);
-                if(not defined($result)) {
+                if((not defined($result)) || ($result->{$m_oid} eq 'noSuchInstance')) {
                         $result=$snmp->get_request(-varbindlist => [$t_oid]);
-                                if(not defined($result)) {
+                                if((not defined($result)) || ($result->{$m_oid} eq 'noSuchInstance')) {
                                         $result=$snmp->get_request(-varbindlist => [$oid]);
+                                        if ($snmp->error() =~ m/genError/) {
+                                                $result = retry_snmp($oid,undef,undef,undef,undef,undef,undef,undef);
+                                        }
                                         if(not defined($result)) {
                                                 print "CRITICAL - snmp error: " . $snmp->error() . "\n";
                                                 exit($ERRORS{'CRITICAL'});
@@ -328,10 +335,30 @@ sub get_consumables {
                                 else { next; }
                         }
                 }
+                if ($consumable eq "Image") {
+                        my @split = split(' ',$consumable = $name);
+                        foreach my $iconsumable (@split) {
+                                if ($iconsumable =~ m/Transfer|Fuser/) { $consumable = $iconsumable. " Kit"; }
+                                else { next; }
+                        }
+                }
+                if (check_model(2) =~ m/generic 30c-9/) {
+                        my @split = split(' ',$consumable = $name);
+                        foreach my $gconsumable (@split) {
+                                if ($gconsumable =~ m/Toner/) {
+                                        ($consumable) = $name =~ /\((.*)\)/;
+                                } elsif ($gconsumable =~ m/Image|Fusing/) {
+                                        $consumable = $name;
+                                } else {
+                                        next;
+                                }
+                        }
+                }
+
                 my $curcap=$tmpprs{$key}{curcap};
                 my $maxcap=$tmpprs{$key}{maxcap};
 
-                if ($name =~ m/Drum|Waste Toner/) {
+                if ($name =~ m/Drum|Waste Toner|Developer/) {
                         next;
                 }
 
@@ -457,11 +484,13 @@ sub check_consumables {
         my $pct_remaining = "";
 
         my $result = $snmp->get_entries(-columns => [$pr_oids{Names}, $pr_oids{CurCap}, $pr_oids{MaxCap}]);
+        if ($snmp->error() =~ m/genError/) {
+                $result = retry_snmp($pr_oids{Names}, $pr_oids{CurCap}, $pr_oids{MaxCap},undef,undef,undef,undef,undef);
+        }
         if(not defined($result)) {
                 print "CRITICAL - snmp error: " . $snmp->error() . "\n";
                 exit($ERRORS{'CRITICAL'});
         }
-
         my $cresult = $snmp->get_entries(-columns => [$pr_oids{CNames}, $pr_oids{CCurCap}, $pr_oids{CMaxCap}]);
 
         get_consumables($result, $pr_oids{Table}, $pr_oids{Names}, $pr_oids{CurCap}, $pr_oids{MaxCap});
@@ -562,6 +591,10 @@ sub check_paper_trays {
         my $mresult = $snmp->get_request(-varbindlist => [".1.3.6.1.2.1.25.3.2.1.3.1"]);
         ($mresult) && ($model=$mresult->{".1.3.6.1.2.1.25.3.2.1.3.1"});
 
+        if ($snmp->error() =~ m/genError/) {
+                $result = retry_snmp($tray_oids{Name},$tray_oids{Cap},$tray_oids{MaxCap},$tray_oids{FeedDim},$tray_oids{FeedDimUnits},$tray_oids{XFeedDim},$tray_oids{XFeedDimUnits},$tray_oids{Status});
+        }
+
         if(not defined($result)) {
                 print "CRITICAL - snmp error: " . $snmp->error() . "\n";
                 exit($ERRORS{'CRITICAL'});
@@ -593,6 +626,9 @@ sub check_paper_trays {
                         $name =~ s/ \(MPT\)//g;
                 }
                 $name =~ s/\n/\!/g;
+                if ($name =~ m/TRAY/) {
+                        $name = (ucfirst(lc($name)));
+                }
                 $found=1;
                 push @{ $trays[$traynumber] }, $name, $cap, $maxcap, $feeddim, $xfeeddim, $tstatus;
                 $traynumber++;
@@ -614,9 +650,8 @@ sub check_paper_trays {
                 if ($xfeeddim eq '-2') { $xfeeddim = "Any"; }
 
                 $model = check_model(2);
-
                 if (($feeddim || $xfeeddim) ne 'Any') {
-                        if ($model =~ m/Canon/) {
+                        if ($model =~ m/canon|xerox/) {
                                 if ($opt_metric) {
                                         $feeddim = sprintf("%.0f", $feeddim * .001)."mm";
                                         $xfeeddim = sprintf("%.0f", $xfeeddim * .001)."mm";
@@ -643,11 +678,11 @@ sub check_paper_trays {
                         # The value (-2) means unknown
                         # so lets check the tray status instead
                         if ($tstatus eq '0') {
-                                if ($model =~ m/Canon/) {
+                                if ($model =~ m/canon/) {
                                         $state = "OK";
                                         $traymessage = " ($xfeeddim x $feeddim)";
                                 }
-                                elsif ($model =~ m/HP/) {
+                                elsif ($model =~ m/hp/) {
                                         $state = "OK";
                                         $traymessage = " ($xfeeddim x $feeddim)";
                                 } else {
@@ -658,7 +693,7 @@ sub check_paper_trays {
                                         $traymessage = "";
                                 }
                         } elsif ($tstatus eq '9') {
-                                if ($model =~ m/HP/) {
+                                if ($model =~ m/hp/) {
                                         $state = "OK";
                                         $traymessage = " ($xfeeddim x $feeddim)";
                                 }
@@ -708,13 +743,24 @@ sub check_paper_trays {
                 if ($perfcount == 0) { $EXITSTRING.= ";;;;"; } else { $EXITSTRING.=";;;; "; }
         }
 }
+sub retry_snmp {
+        my ($sr1,$sr2,$sr3,$sr4,$sr5,$sr6,$sr7,$sr8) = @_;
+
+        if ($sr8) {
+                return $snmp->get_entries(-columns => [$sr1,$sr2,$sr3,$sr4,$sr5,$sr6,$sr7,$sr8]);
+        } elsif ($sr2) {
+                return $snmp->get_entries(-columns => [$sr1,$sr2,$sr3]);
+        } else {
+                return $snmp->get_request(-varbindlist => [$sr1]);
+        }
+}
 
 # set alarm in case we hang
 $SIG{ALRM} = sub {
   print "CRITICAL - Timeout after $opt_timeout seconds\n";
   exit($ERRORS{'CRITICAL'});
 };
-alarm($opt_timeout);
+alarm($opt_timeout*$opt_retries);
 
 # connect to the snmp server
 ($snmp, $errstr) = Net::SNMP->session(
@@ -722,6 +768,7 @@ alarm($opt_timeout);
   -version   => $opt_snmpver,
   -community => $opt_community,
   -timeout   => $opt_timeout,
+  -retries   => $opt_retries,
 );
 if (!$snmp) {
   print "Could not create SNMP session: $errstr\n";
