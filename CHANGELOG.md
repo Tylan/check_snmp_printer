@@ -1,5 +1,5 @@
 <a name="1.1.4"></a>
-# [1.1.4](https://github.com/Tylan/check_snmp_printer/compare/1.1.3...1.1.4) (2020-01-21)
+# [1.1.4](https://github.com/Tylan/check_snmp_printer/compare/1.1.3...1.1.4) (2020-03-31)
 
 ### Bug Fixes
 
