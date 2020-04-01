@@ -1,6 +1,15 @@
 # check_snmp_printer
 Icinga Plugin for Checking SNMP Printer Status (Trays, Consumables and Pagecounts) which includes PerfData.
 
+Supported Printer Models:
+
+* Canon
+* HP
+* Xerox
+* Olivetti (partial)
+
+__Your specific printer not supported?  Open an issue on Github and we'll work to get it supported.__
+
 Forked and modified from Franky Van Liedekerke's 2014 version.
 
 **Consumables**
