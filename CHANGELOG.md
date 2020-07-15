@@ -1,5 +1,20 @@
+<a name="1.2.0"></a>
+# [1.2.0](https://github.com/Tylan/check_snmp_printer/compare/1.1.4...1.2.0) (2020-07-15)
+
+### Bug Fixes
+
+* Added library check for /usr/lib/nagios/plugins folder to support Debian systems
+* Fixed typo in OID lookup for serial number
+* Fixed it so you can disable tray status warning and critical messages by setting their value to 0
+
+### Features
+
+* Added support for Ricoh printers
+* Added support for Brother printers
+* Added the ability to disable checking of the manual feed tray
+
 <a name="1.1.4"></a>
-# [1.1.4](https://github.com/Tylan/check_snmp_printer/compare/v1.1.3...v1.1.4) (2020-03-31)
+# [1.1.4](https://github.com/Tylan/check_snmp_printer/compare/1.1.3...1.1.4) (2020-01-21)
 
 ### Bug Fixes
 
@@ -17,7 +32,7 @@
 * Added consumable support for Olivetti printers
 
 <a name="1.1.3"></a>
-# [1.1.3](https://github.com/Tylan/check_snmp_printer/compare/v1.1.2...v1.1.3) (2020-01-20)
+# [1.1.3](https://github.com/Tylan/check_snmp_printer/compare/1.1.2...1.1.3) (2020-01-20)
 
 ### Bug Fixes
 
@@ -35,7 +50,7 @@
 
 
 <a name="1.1.2"></a>
-# [1.1.2](https://github.com/Tylan/check_snmp_printer/compare/v1.1.1...v1.1.2) (2020-01-13)
+# [1.1.2](https://github.com/Tylan/check_snmp_printer/compare/1.1.1...1.1.2) (2020-01-13)
 
 
 ### Performance Improvements
@@ -45,7 +60,7 @@
 
 
 <a name="1.1.1"></a>
-# [1.1.1](https://github.com/Tylan/check_snmp_printer/compare/v1.1.0...v1.1.1) (2020-01-13)
+# [1.1.1](https://github.com/Tylan/check_snmp_printer/compare/1.1.0...1.1.1) (2020-01-13)
 
 
 ### Features
@@ -56,7 +71,7 @@
 
 
 <a name="1.1.0"></a>
-# [1.1.0](https://github.com/Tylan/check_snmp_printer/compare/v1.0.3...v1.1.1) (2020-01-13)
+# [1.1.0](https://github.com/Tylan/check_snmp_printer/compare/1.0.3...1.1.1) (2020-01-13)
 
 
 ### Features
@@ -73,14 +88,14 @@
 
 
 <a name="1.0.3"></a>
-# [1.0.3](https://github.com/Tylan/check_snmp_printer/compare/v1.0.2...v1.0.3) (2019-12-26)
+# [1.0.3](https://github.com/Tylan/check_snmp_printer/compare/1.0.2...1.0.3) (2019-12-26)
 
 ### Features
 
 * Added graph support for Grafana
 
 <a name="1.0.2"></a>
-# [1.0.2](https://github.com/Tylan/check_snmp_printer/compare/v1.0.1...v1.0.2) (2019-05-27)
+# [1.0.2](https://github.com/Tylan/check_snmp_printer/compare/1.0.1...1.0.2) (2019-05-27)
 
 
 ### Bug Fixes
@@ -99,7 +114,7 @@
 
 
 <a name="1.0.1"></a>
-# [1.0.1](https://github.com/Tylan/check_snmp_printer/compare/v1.0.0...v1.0.1) (2019-05-02)
+# [1.0.1](https://github.com/Tylan/check_snmp_printer/compare/1.0.0...1.0.1) (2019-05-02)
 
 ### Bug Fixes
 
