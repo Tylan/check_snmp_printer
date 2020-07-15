@@ -52,7 +52,8 @@
     {
       "aliasColors": {
         "Black-and-White": "#000000",
-        "Color": "#60f7c5"
+        "Color": "#60f7c5",
+        "Total": "#800080"
       },
       "bars": false,
       "dashLength": 10,
@@ -237,6 +238,7 @@
     {
       "aliasColors": {
         "Black_Toner": "rgb(0, 0, 0)",
+        "Schwarz_Toner": "rgb(0, 0, 0)",
         "Clean_Rollers": "#2393ba",
         "Cyan_Toner": "rgb(57, 223, 234)",
         "Document_Feeder_Kit": "dark-blue",
@@ -248,7 +250,8 @@
         "Stapler": "#996600",
         "Staples": "#996600",
         "Transfer_Unit": "#49ba23",
-        "Yellow_Toner": "yellow"
+        "Yellow_Toner": "yellow",
+        "Gelb_Toner": "yellow"
       },
       "bars": false,
       "dashLength": 10,
