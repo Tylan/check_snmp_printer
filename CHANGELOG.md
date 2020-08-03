@@ -1,3 +1,13 @@
+<a name="1.2.1"></a>
+# [1.2.1](https://github.com/Tylan/check_snmp_printer/compare/v1.2.0...v1.2.1) (2020-08-03)
+
+### Bug Fixes
+
+* Fixed Brother consumable reporting as it was not reporting correctly - it is now OK or NOT OK due to OID restrictions
+
+### Features
+
+* Added WARNING and CRITICAL states based on certain printer messages with the messages option
 <a name="1.2.0"></a>
 # [1.2.0](https://github.com/Tylan/check_snmp_printer/compare/v1.1.4...v1.2.0) (2020-07-15)
 
