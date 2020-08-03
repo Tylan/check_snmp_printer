@@ -264,7 +264,7 @@ sub check_messages {
                         $MESSAGES = "Cannot determine messages, but result returned WARNING.";
                         $state = "WARNING";
                 }
-                elsif ($message =~ m/toner low|wenig toner|cartridge low/) {
+                elsif ($message =~ m/attention|toner low|wenig toner|cartridge low/) {
                         $state = "WARNING";
                 }
                 elsif ($message =~ m/replace toner|toner ersetzen|error/) {
