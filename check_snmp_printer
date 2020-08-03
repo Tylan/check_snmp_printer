@@ -930,3 +930,4 @@ sub stop {
         print $result . "\n";
         exit ( $STATUS_CODE{$exit_code} );
 }
+a
