@@ -3,7 +3,7 @@
 #                                                       #
 #                                                       #
 #      SNMP Printer Check Plugin for Icinga             #
-#            Version 1.2.0 (July 15, 2020)              #
+#            Version 1.2.1 (August 3, 2020)             #
 #                by Rob McLoughlin                      #
 #         E-mail: rmcloughlin@outlook.com               #
 #                                                       #
@@ -61,7 +61,7 @@ my %STATUS_CODE =
 
 # config
 $PROGNAME    = $0;
-$VERSION     = '1.2.0';
+$VERSION     = '1.2.1';
 
 # init options
 $opt_version    = undef;
@@ -221,21 +221,56 @@ sub check_model {
 }
 
 sub check_messages {
+        my ($mcheck) = @_;
         my ($oid,$result);
         my $MESSAGES="";
-        $oid=".1.3.6.1.2.1.43.18.1.1.8";
+        $oid=".1.3.6.1.2.1.43.17.6.1.5.1";
+
         $result = $snmp->get_entries(-columns => [$oid]);
         if(not defined($result)) {
+                $oid=".1.3.6.1.2.1.43.18.1.1.8";
+                $result = $snmp->get_entries(-columns => [$oid]);
+                if (Dumper($result) =~ m/\d+\d+\d+\d+\d+/) {
+                        $oid=".1.3.6.1.2.1.25.3.2.1.5";
+                        $result = $snmp->get_entries(-columns => [$oid]);
+                }
+        }
+        if(not defined($result)) {
                 $oid=".1.3.6.1.2.1.43.16";
+                $result = $snmp->get_entries(-columns => [$oid]);
+        }
+        if(not defined($result)) {
+                $oid=".1.3.6.1.2.1.25.3.2.1.5";
                 $result = $snmp->get_entries(-columns => [$oid]);
         }
         foreach my $key (keys(%$result)) {
                 $result->{$key} =~ s/\"//g;
                 $result->{$key} =~ s/\n/\!/g;
-                $MESSAGES .= $result->{$key};
+                $MESSAGES .= $result->{$key}."\n";
         }
+        chomp $MESSAGES;
         if ($MESSAGES eq "") {
                 $MESSAGES= "(Can't determine messages)";
+        }
+        if ($mcheck == 2) { return $MESSAGES; }
+        my @messages = split('\n',$MESSAGES);
+        foreach my $message (@messages) {
+                $message = lc $message;
+                if ($message == 2) {
+                        $MESSAGES = "Cannot determine messages, but result returned OK.";
+                        $state = "OK";
+                }
+                elsif ($message == 3) {
+                        $MESSAGES = "Cannot determine messages, but result returned WARNING.";
+                        $state = "WARNING";
+                }
+                elsif ($message =~ m/toner low|wenig toner|cartridge low/) {
+                        $state = "WARNING";
+                }
+                elsif ($message =~ m/replace toner|toner ersetzen|error/) {
+                        $state = "CRITICAL";
+                } else { $state = "OK"; }
+                push (@status, $state);
         }
         print "$MESSAGES\n";
 }
@@ -377,7 +412,7 @@ sub get_consumables {
                 my $curcap=$tmpprs{$key}{curcap};
                 my $maxcap=$tmpprs{$key}{maxcap};
 
-                if ($name =~ m/Drum|Resttoner|Waste Toner|Developer/) {
+                if ($name =~ m/Drum|Resttoner|Waste Toner|Belt|Developer/) {
                         next;
                 }
 
@@ -438,12 +473,13 @@ sub get_consumables {
                                         if ($consumable =~ m/Yellow|Gelb/) {
                                                 $boid = ".1.3.6.1.4.1.2435.2.3.9.1.1.2.10.4";
                                         }
-                                        $bresult=$snmp->get_request(-varbindlist => [$boid]);
-                                        $bstatus = $bresult->{$oid};
-                                        if ($bstatus == 0) { $state = "OK"; push (@measurables, 'b0'); $curcap = 100; }
-                                        if ($bstatus == 1) { $state = "WARNING"; push (@measurables, 'b1'); $curcap = 10; }
-                                        if ($bstatus == 2) { $state = "CRITICAL"; push (@measurables, 'b2'); $curcap = 0; }
-                                        if ($bstatus == 3) { $state = "CRITICAL"; push (@measurables, 'b3'); $curcap = 0; }
+                                        if (defined($snmp->get_request(-varbindlist => [$boid]))) {
+                                                $bstatus = $bresult->{$oid};
+                                                if ($bstatus == 0) { $state = "OK"; push (@measurables, 'b0'); $curcap = 100; }
+                                                if ($bstatus == 1) { $state = "WARNING"; push (@measurables, 'b1'); $curcap = 10; }
+                                                if ($bstatus == 2) { $state = "CRITICAL"; push (@measurables, 'b2'); $curcap = 0; }
+                                                if ($bstatus == 3) { $state = "CRITICAL"; push (@measurables, 'b3'); $curcap = 0; }
+                                        } else { ($state,$curcap) = nonmeasurable($curcap,$name); }
                                 } else {
                                         $state = nonmeasurable($curcap,$name);
                                 }
@@ -460,14 +496,35 @@ sub nonmeasurable {
 
         # Our object is not measurable - it's either FULL or EMPTY (such as a punch dust box)
         # Let's report on it's status using appropriate terminology
-        if ($curcap==-3) {
+        if (check_model(2) =~ m/brother/) {
+                if ($curcap == -3) { $state = "OK"; push (@measurables, 'b0'); }
+                else {
+                        my $smessage = check_messages(2);
+                        my @messages = split('\n',$smessage);
+                        foreach my $message (@messages) {
+                                $message = lc $message;
+                                if ($message =~ m/toner low|wenig toner/) {
+                                        $state = "WARNING";
+                                        push (@measurables, 'b1');
+                                        $curcap = 10;
+                                }
+                                elsif ($message =~ m/replace toner|toner ersetzen/) {
+                                        $state = "CRITICAL";
+                                        push (@measurables, 'b3');
+                                        $curcap = 0;
+                                }
+                        }
+                }
+                push (@measurables, '1');
+                return $state, $curcap;
+        } elsif ($curcap==-3) {
                 $state = "OK";
         } elsif ($curcap==-2) {
                 # The value (-2) means unknown
                 if ($name =~ m/W2020A|W2021A|W2022A|W2023A/) { # HP Color LaserJet Pro M454dw Toner
                         $state = "CRITICAL";
                         push (@measurables, '1');
-                } else { $state = "WARNING"; push (@measurables, '0'); }
+                 } else { $state = "WARNING"; push (@measurables, '0'); }
         } elsif ($curcap==0) {
                 # Something is empty!
                 $state = "CRITICAL";
@@ -545,18 +602,18 @@ sub check_consumables {
                         $pct_remaining = " is ".$percentages[0]. "% full.";
                 } elsif ($consumables[0] eq "Stapler") {
                         $pct_remaining = "";
-                } elsif ($measurables[$i] =~ m/b0|b1|b2|b3/) {
+                } elsif (check_model(2) =~ m/brother/) {
                         if ($measurables[$i] eq "b0") {
-                                 $pct_remaining = " levels are OK.";
+                                $pct_remaining = " levels are OK.";
                         }
                         if ($measurables[$i] eq "b1") {
-                                 $pct_remaining = " levels are LOW.";
+                                $pct_remaining = " levels are LOW.";
                         }
                         if ($measurables[$i] eq "b2") {
-                                 $pct_remaining = " has no toner installed.";
+                                $pct_remaining = " has no toner installed.";
                         }
                         if ($measurables[$i] eq "b3") {
-                                 $pct_remaining = " levels are EMPTY.";
+                                $pct_remaining = " levels are EMPTY.";
                         }
                 } elsif ($percentages[$i] eq "-2") {
                         if ($measurables[$i] eq "0") {
@@ -581,6 +638,19 @@ sub check_consumables {
                                         $pct_remaining = " is ".$percentages[$i]. "% full.";
                                 } elsif ($consumables[$i] eq "Stapler") {
                                         $pct_remaining = "";
+                                } elsif (check_model(2) =~ m/brother/) {
+                                        if ($measurables[$i] eq "b0") {
+                                                $pct_remaining = " levels are OK.";
+                                        }
+                                        if ($measurables[$i] eq "b1") {
+                                                $pct_remaining = " levels are LOW.";
+                                        }
+                                        if ($measurables[$i] eq "b2") {
+                                                $pct_remaining = " has no toner installed.";
+                                        }
+                                        if ($measurables[$i] eq "b3") {
+                                                $pct_remaining = " levels are EMPTY.";
+                                        }
                                 } elsif ($percentages[$i] eq "-2") {
                                         if ($measurables[$i] eq "0") {
                                                 $pct_remaining = " levels cannot be measured.";
@@ -838,7 +908,7 @@ if (!$snmp) {
   exit($ERRORS{'UNKNOWN'});
 }
 
-if ($opt_messages) {check_messages(); exit($ERRORS{'OK'});}
+if ($opt_messages) {check_messages();} # exit($ERRORS{'OK'});}
 if ($opt_model) {check_model(1); exit($ERRORS{'OK'});}
 if ($opt_pagecount) {check_page_count();}
 if ($opt_consum) {check_consumables();}
