@@ -14,7 +14,7 @@
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "6.5.3"
+      "version": "6.7.2"
     },
     {
       "type": "panel",
@@ -32,6 +32,7 @@
   "annotations": {
     "list": [
       {
+        "$$hashKey": "object:456",
         "builtIn": 1,
         "datasource": "-- Grafana --",
         "enable": true,
@@ -46,14 +47,13 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": null,
-  "iteration": 1579549065676,
+  "iteration": 1599495748114,
   "links": [],
   "panels": [
     {
       "aliasColors": {
         "Black-and-White": "#000000",
-        "Color": "#60f7c5",
-        "Total": "#800080"
+        "Color": "#60f7c5"
       },
       "bars": false,
       "dashLength": 10,
@@ -145,6 +145,11 @@
         "Drawer_2": "#8900ff",
         "Drawer_3": "#ff002f",
         "Drawer_4": "#34ff00",
+        "MP_Tray": "#00ffbd",
+        "Manual_Envelope": "#00ffbd",
+        "Manual_Paper": "#00ffbd",
+        "Mp_Tray": "#00ffbd",
+        "Multi-purpose_Tray": "#00ffbd",
         "Stack_Bypass": "#00ffbd",
         "Tray_1": "#ff9700",
         "Tray_2": "#8900ff",
@@ -237,21 +242,23 @@
     },
     {
       "aliasColors": {
+        "Black_Imaging_Unit": "#000000",
         "Black_Toner": "rgb(0, 0, 0)",
-        "Schwarz_Toner": "rgb(0, 0, 0)",
         "Clean_Rollers": "#2393ba",
+        "Color_Imaging_Kit": "#c76fb6",
         "Cyan_Toner": "rgb(57, 223, 234)",
         "Document_Feeder_Kit": "dark-blue",
         "Fuser": "#ba8823",
+        "Gelb_Toner": "yellow",
         "Magenta_Toner": "rgb(192, 20, 194)",
         "Maintenance_Kit": "#ba232a",
         "Puncher_Waste": "#ff99cc",
         "Saddle_Staples": "#999966",
+        "Schwarz_Toner": "rgb(0, 0, 0)",
         "Stapler": "#996600",
         "Staples": "#996600",
         "Transfer_Unit": "#49ba23",
-        "Yellow_Toner": "yellow",
-        "Gelb_Toner": "yellow"
+        "Yellow_Toner": "yellow"
       },
       "bars": false,
       "dashLength": 10,
@@ -339,7 +346,7 @@
       }
     }
   ],
-  "schemaVersion": 21,
+  "schemaVersion": 22,
   "style": "dark",
   "tags": [],
   "templating": {
@@ -351,6 +358,7 @@
         "definition": "icinga2.*",
         "hide": 0,
         "includeAll": false,
+        "index": -1,
         "label": null,
         "multi": false,
         "name": "hostname",
@@ -373,6 +381,7 @@
         "definition": "icinga2.$hostname.services.*",
         "hide": 0,
         "includeAll": false,
+        "index": -1,
         "label": null,
         "multi": false,
         "name": "service",
@@ -395,6 +404,7 @@
         "definition": "icinga2.$hostname.*.*",
         "hide": 0,
         "includeAll": false,
+        "index": -1,
         "label": null,
         "multi": false,
         "name": "command",
@@ -431,7 +441,10 @@
     ]
   },
   "timezone": "",
-  "title": "printer-metrics",
+  "title": "printer-metrics-graphite",
   "uid": "Q47JmGLWz",
-  "version": 52
+  "variables": {
+    "list": []
+  },
+  "version": 53
 }
