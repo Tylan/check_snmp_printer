@@ -14,7 +14,7 @@
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "6.5.3"
+      "version": "6.7.2"
     },
     {
       "type": "panel",
@@ -32,6 +32,7 @@
   "annotations": {
     "list": [
       {
+        "$$hashKey": "object:1759",
         "builtIn": 1,
         "datasource": "-- Grafana --",
         "enable": true,
@@ -46,14 +47,13 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": null,
-  "iteration": 1579548898302,
+  "iteration": 1599497014340,
   "links": [],
   "panels": [
     {
       "aliasColors": {
         "Black-and-White": "#000000",
-        "Color": "#60f7c5",
-        "Total": "#800080"
+        "Color": "#60f7c5"
       },
       "bars": false,
       "dashLength": 10,
@@ -218,6 +218,11 @@
         "Drawer 2": "#8900ff",
         "Drawer 3": "#ff002f",
         "Drawer 4": "#34ff00",
+        "MP Tray": "#00ffbd",
+        "Manual Envelope": "#00ffbd",
+        "Manual Paper": "#00ffbd",
+        "Mp Tray": "#00ffbd",
+        "Multi-purpose_Tray": "#00ffbd",
         "Stack Bypass": "#00ffbd",
         "Tray 1": "#ff9700",
         "Tray 2": "#8900ff",
@@ -376,7 +381,25 @@
               }
             ]
           ],
-          "tags": []
+          "tags": [
+            {
+              "key": "hostname",
+              "operator": "=~",
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Tray Status"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "Tray_3"
+            }
+          ]
         },
         {
           "alias": "Tray 4",
@@ -414,7 +437,25 @@
               }
             ]
           ],
-          "tags": []
+          "tags": [
+            {
+              "key": "hostname",
+              "operator": "=~",
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Tray Status"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "Tray_4"
+            }
+          ]
         },
         {
           "alias": "Drawer 1",
@@ -452,7 +493,25 @@
               }
             ]
           ],
-          "tags": []
+          "tags": [
+            {
+              "key": "hostname",
+              "operator": "=~",
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Tray Status"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "Drawer_1"
+            }
+          ]
         },
         {
           "alias": "Drawer 2",
@@ -490,7 +549,25 @@
               }
             ]
           ],
-          "tags": []
+          "tags": [
+            {
+              "key": "hostname",
+              "operator": "=~",
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Tray Status"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "Drawer_2"
+            }
+          ]
         },
         {
           "alias": "Drawer 3",
@@ -528,7 +605,25 @@
               }
             ]
           ],
-          "tags": []
+          "tags": [
+            {
+              "key": "hostname",
+              "operator": "=~",
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Tray Status"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "Drawer_3"
+            }
+          ]
         },
         {
           "alias": "Drawer 4",
@@ -566,7 +661,25 @@
               }
             ]
           ],
-          "tags": []
+          "tags": [
+            {
+              "key": "hostname",
+              "operator": "=~",
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Tray Status"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "Drawer_4"
+            }
+          ]
         },
         {
           "alias": "Stack Bypass",
@@ -604,7 +717,305 @@
               }
             ]
           ],
-          "tags": []
+          "tags": [
+            {
+              "key": "hostname",
+              "operator": "=~",
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Tray Status"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "Stack_Bypass"
+            }
+          ]
+        },
+        {
+          "alias": "MP Tray",
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"value\" FROM \"snmp_printer\" WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Tray Status' AND \"metric\" = 'MP_Tray') AND $timeFilter",
+          "rawQuery": true,
+          "refId": "I",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "hostname",
+              "operator": "=~",
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Tray Status"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "MP_Tray"
+            }
+          ]
+        },
+        {
+          "alias": "Mp Tray",
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"value\" FROM \"snmp_printer\" WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Tray Status' AND \"metric\" = 'Mp_Tray') AND $timeFilter",
+          "rawQuery": true,
+          "refId": "I",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "hostname",
+              "operator": "=~",
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Tray Status"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "Mp_Tray"
+            }
+          ]
+        },
+        {
+          "alias": "Multi-purpose_Tray",
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"value\" FROM \"snmp_printer\" WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Tray Status' AND \"metric\" = 'Multi-purpose_Tray') AND $timeFilter",
+          "rawQuery": true,
+          "refId": "I",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "hostname",
+              "operator": "=~",
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Tray Status"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "Multi-purpose_Tray"
+            }
+          ]
+        },
+        {
+          "alias": "Manual Paper",
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"value\" FROM \"snmp_printer\" WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Tray Status' AND \"metric\" = 'Manual_Paper') AND $timeFilter",
+          "rawQuery": true,
+          "refId": "I",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "hostname",
+              "operator": "=~",
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Tray Status"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "Manual_Paper"
+            }
+          ]
+        },
+        {
+          "alias": "Manual Envelope",
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"value\" FROM \"snmp_printer\" WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Tray Status' AND \"metric\" = 'Manual_Envelope') AND $timeFilter",
+          "rawQuery": true,
+          "refId": "I",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "hostname",
+              "operator": "=~",
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Tray Status"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "Manual_Envelope"
+            }
+          ]
         }
       ],
       "thresholds": [],
@@ -652,20 +1063,22 @@
     {
       "aliasColors": {
         "Black": "rgb(0, 0, 0)",
-        "Schwarz": "rgb(0, 0, 0)",
+        "Black Imaging Unit": "#000000",
         "Clean Rollers": "#2393ba",
+        "Color Imaging Kit": "#c76fb6",
         "Cyan": "#00ffff",
         "Document Feeder Kit": "dark-blue",
         "Fuser": "#ba8823",
+        "Gelb": "yellow",
         "Magenta": "#ff00ff",
         "Maintenance Kit": "#ba232a",
         "Puncher Waste": "#ff99cc",
         "Saddle Staples": "#999966",
+        "Schwarz": "rgb(0, 0, 0)",
         "Stapler": "#996600",
         "Staples": "#996600",
         "Transfer Unit": "#49ba23",
-        "Yellow": "yellow",
-        "Gelb": "yellow"
+        "Yellow": "yellow"
       },
       "bars": false,
       "cacheTimeout": null,
@@ -1292,6 +1705,86 @@
               "value": "Puncher_Waste"
             }
           ]
+        },
+        {
+          "alias": "Color Imaging Kit",
+          "groupBy": [],
+          "measurement": "snmp_printer",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"value\" FROM \"snmp_printer\" WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Consumables Status' AND \"metric\" = 'Color_Imaging_Kit') AND $timeFilter",
+          "rawQuery": false,
+          "refId": "M",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "hostname",
+              "operator": "=~",
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Consumables Status"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "Color_Imaging_Kit"
+            }
+          ]
+        },
+        {
+          "alias": "Black Imaging Unit",
+          "groupBy": [],
+          "measurement": "snmp_printer",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"value\" FROM \"snmp_printer\" WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Consumables Status' AND \"metric\" = 'Black_Imaging_Unit') AND $timeFilter",
+          "rawQuery": false,
+          "refId": "M",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "hostname",
+              "operator": "=~",
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Consumables Status"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "Black_Imaging_Unit"
+            }
+          ]
         }
       ],
       "thresholds": [],
@@ -1337,7 +1830,8 @@
       }
     }
   ],
-  "schemaVersion": 21,
+  "refresh": false,
+  "schemaVersion": 22,
   "style": "dark",
   "tags": [],
   "templating": {
@@ -1349,6 +1843,7 @@
         "definition": "SHOW TAG VALUES WITH KEY = \"hostname\"",
         "hide": 0,
         "includeAll": false,
+        "index": -1,
         "label": null,
         "multi": false,
         "name": "hostname",
@@ -1371,6 +1866,7 @@
         "definition": "SHOW TAG VALUES WITH KEY = \"service\" where hostname =~ /^$hostname$/",
         "hide": 0,
         "includeAll": false,
+        "index": -1,
         "label": null,
         "multi": false,
         "name": "service",
@@ -1393,6 +1889,7 @@
         "definition": "SHOW MEASUREMENTS where hostname =~ /^$hostname$/",
         "hide": 0,
         "includeAll": false,
+        "index": -1,
         "label": null,
         "multi": false,
         "name": "command",
@@ -1431,5 +1928,8 @@
   "timezone": "",
   "title": "printer-metrics",
   "uid": "NPbC04YZk",
-  "version": 43
+  "variables": {
+    "list": []
+  },
+  "version": 50
 }
