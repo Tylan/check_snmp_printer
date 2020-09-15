@@ -8,7 +8,9 @@ Supported Printer Models:
 * Xerox
 * Ricoh
 * Brother
-* Olivetti (partial)
+* Lexmark
+* Kyocera
+* Olivetti
 
 __Your specific printer not supported?  Open an issue on Github and we'll work to get it supported.__
 
