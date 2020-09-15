@@ -1,3 +1,18 @@
+<a name="1.2.2"></a>
+# [1.2.2](https://github.com/Tylan/check_snmp_printer/compare/v1.2.1...v1.2.2) (2020-09-06)
+
+### Features
+
+* Added support for Kyocera printers
+* Added support for Lexmark printers
+* Changed perfdata to display percentage for paper tray output.  If it cannot accurate determine a percentage it is statically set based upon further inspection from other OID sources.
+
+### Bug Fixes
+* Fixed the --nofeeder option as it was removing Tray 1 even though it was not a feeder tray in some circumstances.
+
+### Other Fixes
+
+* Slight verbage change to some outputs
 <a name="1.2.1"></a>
 # [1.2.1](https://github.com/Tylan/check_snmp_printer/compare/v1.2.0...v1.2.1) (2020-08-03)
 
@@ -13,13 +28,13 @@
 
 ### Bug Fixes
 
-* Added library check for /usr/lib/nagios/plugins folder to support Debian systems
+* Added library check for /usr/lib/nagios/plugins folder to support Debian systems 
 * Fixed typo in OID lookup for serial number
 * Fixed it so you can disable tray status warning and critical messages by setting their value to 0
 
 ### Features
 
-* Added support for Ricoh printers
+* Added support for Ricoh printers 
 * Added support for Brother printers
 * Added the ability to disable checking of the manual feed tray
 
@@ -93,7 +108,7 @@
 ### Performance Improvements
 
 * Fixed display output for non measurable toners
-* Cleaned up code
+* Cleaned up code 
 
 
 
