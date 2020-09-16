@@ -1,5 +1,5 @@
 <a name="1.2.2"></a>
-# [1.2.2](https://github.com/Tylan/check_snmp_printer/compare/v1.2.1...v1.2.2) (2020-09-06)
+# [1.2.2](https://github.com/Tylan/check_snmp_printer/compare/v1.2.1...v1.2.2) (2020-09-16)
 
 ### Features
 
