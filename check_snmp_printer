@@ -3,7 +3,7 @@
 #                                                       #
 #                                                       #
 #      SNMP Printer Check Plugin for Icinga             #
-#            Version 1.2.2 (September 06, 2020)		#
+#            Version 1.2.2 (September 16, 2020)		#
 #                by Rob McLoughlin                      #
 #         E-mail: rmcloughlin@outlook.com               #
 #                                                       #
@@ -829,7 +829,11 @@ sub check_paper_trays {
 		if ($cap == -3) {
                         # The value (-3) means that the printer knows that at least one unit remains.
                         if ($model =~ m/lexmark/) { # When -3, Lexmark is really low status.
-                                $state = "WARNING";
+				if (($opt_critical == 0) or ($opt_warning == 0 )) {
+					$state = "OK";
+				} else {
+                                	$state = "WARNING";
+				}
                                 $traymessage = " is LOW. ($xfeeddim x $feeddim)";
                         } else {
                                 $state = "OK";
