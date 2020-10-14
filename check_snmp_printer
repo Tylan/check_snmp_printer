@@ -3,7 +3,7 @@
 #                                                       #
 #                                                       #
 #      SNMP Printer Check Plugin for Icinga             #
-#            Version 1.2.2 (September 16, 2020)		#
+#            Version 1.2.3 (October 14, 2020)           #
 #                by Rob McLoughlin                      #
 #         E-mail: rmcloughlin@outlook.com               #
 #                                                       #
@@ -21,7 +21,7 @@
 #       E-mail: jason_leonard@yahoo.com )               #
 #                                                       #
 # Version History                                       #
-#   - Refer to CHANGELOG.md				#
+#   - Refer to CHANGELOG.md                             #
 #                                                       #
 #       Like the original, this plugin is distributed   #
 # under the GNU GPL license. You may re-destribute only #
@@ -61,13 +61,13 @@ my %STATUS_CODE =
 
 # config
 $PROGNAME    = $0;
-$VERSION     = '1.2.2';
+$VERSION     = '1.2.3';
 
 # init options
 $opt_version    = undef;
 $opt_help       = undef;
 $opt_timeout    = $TIMEOUT;
-$opt_retries	= 3;
+$opt_retries    = 3;
 $opt_host       = undef;
 $opt_community  = 'public';
 $opt_snmpver    = 1;
@@ -86,7 +86,7 @@ GetOptions(
   'V|version'           => \$opt_version,
   'h|help'              => \$opt_help,
   't|timeout=i'         => \$opt_timeout,
-  'r|retries=i'		=> \$opt_retries,
+  'r|retries=i'         => \$opt_retries,
   'H|host=s'            => \$opt_host,
   'C|community=s'       => \$opt_community,
   'v|snmpver=s'         => \$opt_snmpver,
@@ -97,7 +97,7 @@ GetOptions(
   'consum'              => \$opt_consum,
   'trays'               => \$opt_tray,
   'pagecount'           => \$opt_pagecount,
-  'nofeeder'		=> \$opt_nofeeder,
+  'nofeeder'            => \$opt_nofeeder,
   'metric'              => \$opt_metric
 ) or do {
   print_usage();
@@ -199,100 +199,89 @@ EOB
 }
 
 sub check_model {
-	my ($pcheck) = @_;
+        my ($pcheck) = @_;
         my ($oid,$result);
         my $MODEL="Uknown model";
         my $SERIAL="";
 
-	if ($pcheck == 1 || $pcheck == 2) {
-	        $oid=".1.3.6.1.2.1.25.3.2.1.3.1";
-	        $result=$snmp->get_request(-varbindlist => [$oid]);
-	        ($result) && ($MODEL=$result->{$oid});
-		if ($pcheck == 2) { return lc $MODEL; }
-	}
-	if ($pcheck == 1) {
-	        $oid=".1.3.6.1.2.1.43.5.1.1.17.1";
-	        $result=$snmp->get_request(-varbindlist => [$oid]);
-	        ($result) && ($SERIAL=$result->{$oid});
-	        $SERIAL =~ s/\"//g;
+        if ($pcheck == 1 || $pcheck == 2) {
+                $oid=".1.3.6.1.2.1.25.3.2.1.3.1";
+                $result=$snmp->get_request(-varbindlist => [$oid]);
+                ($result) && ($MODEL=$result->{$oid});
+                if ($pcheck == 2) { return lc $MODEL; }
+        }
+        if ($pcheck == 1) {
+                $oid=".1.3.6.1.2.1.43.5.1.1.17.1";
+                $result=$snmp->get_request(-varbindlist => [$oid]);
+                ($result) && ($SERIAL=$result->{$oid});
+                $SERIAL =~ s/\"//g;
 
-	        print "$MODEL, Serial # $SERIAL\n";
-	}
+                print "$MODEL, Serial # $SERIAL\n";
+        }
 }
 
 sub check_messages {
-	my ($mcheck) = @_;
-        my ($oid,$result);
+        my ($mcheck) = @_;
+        my ($oid,$result,$model);
         my $MESSAGES="";
-	$oid=".1.3.6.1.2.1.43.18.1.1.8";
+
+        $model = check_model(2);
+        if ($model =~ m/hp/) {
+                $oid=".1.3.6.1.4.1.11.2.3.9.1.1.3";
+        } else {
+                $oid=".1.3.6.1.2.1.43.16";
+        }
 
         $result = $snmp->get_entries(-columns => [$oid]);
 
-        if(not defined($result)) {
-                $oid=".1.3.6.1.2.1.43.16";
-                $result = $snmp->get_entries(-columns => [$oid]);
-        }
-	if((not defined($result)) or (Dumper($result) =~ m/\d+\d+\d+\d+\d+/)) {
-                $oid=".1.3.6.1.2.1.25.3.2.1.5";
-                $result = $snmp->get_entries(-columns => [$oid]);
-	}
-	
         foreach my $key (keys(%$result)) {
                 $result->{$key} =~ s/\"//g;
                 $result->{$key} =~ s/\n/\!/g;
                 $MESSAGES .= $result->{$key}."\n";
         }
-	chomp $MESSAGES;
+        chomp $MESSAGES;
         if ($MESSAGES eq "") {
                 $MESSAGES= "(Can't determine messages)";
         }
-	if ($mcheck == 2) { return $MESSAGES; }
-	my @messages = split('\n',$MESSAGES);
-	foreach my $message (@messages) {
-		$message = lc $message;
-		if ($message == 2) {
-			$MESSAGES = "Cannot determine messages, but status returned OK.";
-			$state = "OK";
-		}
-		elsif ($message == 3) {
-                        $MESSAGES = "Cannot determine messages, but status returned WARNING.";
+        if ($mcheck == 2) { return $MESSAGES; }
+        my @messages = split('\n',$MESSAGES);
+        foreach my $message (@messages) {
+                $message = lc $message;
+                if ($message =~ m/toner low|wenig toner|cartridge low|niedrig|attention/) {
                         $state = "WARNING";
-		}
-		elsif ($message =~ m/toner low|wenig toner|cartridge low|attention/) {
-			$state = "WARNING";
-		}
-		elsif ($message =~ m/replace toner|toner ersetzen|error|paper is out/) {
-			$state = "CRITICAL";
-		} else { $state = "OK"; }
+                }
+                elsif ($message =~ m/replace toner|toner ersetzen|error|paper is out/) {
+                        $state = "CRITICAL";
+                } else { $state = "OK"; }
                 push @{ $status[$mnumber] }, $state;
                 $mnumber++;
-	}
+        }
         print "$MESSAGES\n";
 }
 
 sub check_page_count {
         my ($oid,$result,$model,$t_oid,$c_oid,$m_oid,
-	    $m_a3_oid,$m_a4_oid,$c_a3_oid,$c_a4_oid,
-	    $m_a3,$m_a4,$c_a3,$c_a4,$MonoPagecount,$ColorPagecount,$TotalPagecount);
+            $m_a3_oid,$m_a4_oid,$c_a3_oid,$c_a4_oid,
+            $m_a3,$m_a4,$c_a3,$c_a4,$MonoPagecount,$ColorPagecount,$TotalPagecount);
         my (%ttmpprs,%ctmpprs,%mtmpprs) = ();
 
-	$model = check_model(2);
-	if ($model =~ m/hp/) {
-		$c_oid='.1.3.6.1.4.1.11.2.3.9.4.2.1.4.1.2.7.0';
-		$m_oid='.1.3.6.1.4.1.11.2.3.9.4.2.1.4.1.2.6.0';
-	}
+        $model = check_model(2);
+        if ($model =~ m/hp/) {
+                $c_oid='.1.3.6.1.4.1.11.2.3.9.4.2.1.4.1.2.7.0';
+                $m_oid='.1.3.6.1.4.1.11.2.3.9.4.2.1.4.1.2.6.0';
+        }
         if ($model =~ m/canon/) {
                 $t_oid='.1.3.6.1.4.1.1602.1.11.1.3.1.4.101';
-		$c_oid='.1.3.6.1.4.1.1602.1.11.1.3.1.4.105';
-		$m_oid='.1.3.6.1.4.1.1602.1.11.1.3.1.4.108';
+                $c_oid='.1.3.6.1.4.1.1602.1.11.1.3.1.4.105';
+                $m_oid='.1.3.6.1.4.1.1602.1.11.1.3.1.4.108';
                 $m_a3_oid='.1.3.6.1.4.1.1602.1.11.1.3.1.4.112';
                 $m_a4_oid='.1.3.6.1.4.1.1602.1.11.1.3.1.4.113';
                 $c_a3_oid='.1.3.6.1.4.1.1602.1.11.1.3.1.4.222';
                 $c_a4_oid='.1.3.6.1.4.1.1602.1.11.1.3.1.4.223';
         }
         if ($model =~ m/xerox/) {
-		$c_oid='.1.3.6.1.4.1.253.8.53.13.2.1.6.1.20.33';
-		$m_oid='.1.3.6.1.4.1.253.8.53.13.2.1.6.1.20.34';
+                $c_oid='.1.3.6.1.4.1.253.8.53.13.2.1.6.1.20.33';
+                $m_oid='.1.3.6.1.4.1.253.8.53.13.2.1.6.1.20.34';
         }
         if ($model =~ m/lexmark/) {
                 $c_oid='.1.3.6.1.4.1.641.6.4.2.2.1.7.1.1';
@@ -302,35 +291,35 @@ sub check_page_count {
                 $c_oid='.1.3.6.1.4.1.367.3.2.1.2.19.5.1.9.21';
                 $m_oid='.1.3.6.1.4.1.367.3.2.1.2.19.5.1.9.22';
         }
-	if ($model =~ m/kyocera|ecosys|taskalfa|4200dn/) {
-		$t_oid='.1.3.6.1.4.1.1347.42.2.1.1.1.6.1';
-		$c_oid='.1.3.6.1.4.1.1347.42.2.1.1.1.8.1';
-		$m_oid='.1.3.6.1.4.1.1347.42.2.1.1.1.7.1';
-	}
+        if ($model =~ m/kyocera|ecosys|taskalfa|4200dn/) {
+                $t_oid='.1.3.6.1.4.1.1347.42.2.1.1.1.6.1';
+                $c_oid='.1.3.6.1.4.1.1347.42.2.1.1.1.8.1';
+                $m_oid='.1.3.6.1.4.1.1347.42.2.1.1.1.7.1';
+        }
 
         $oid=".1.3.6.1.2.1.43.10.2.1.4.1.1";
 
 
-	if (defined($snmp->get_request(-varbindlist => [$m_a3_oid]))) { $m_a3 = $snmp->get_request(-varbindlist => [$m_a3_oid]) }
+        if (defined($snmp->get_request(-varbindlist => [$m_a3_oid]))) { $m_a3 = $snmp->get_request(-varbindlist => [$m_a3_oid]) }
         if (defined($snmp->get_request(-varbindlist => [$m_a4_oid]))) { $m_a4 = $snmp->get_request(-varbindlist => [$m_a4_oid]) }
         if (defined($snmp->get_request(-varbindlist => [$c_a3_oid]))) { $c_a3 = $snmp->get_request(-varbindlist => [$c_a3_oid]) }
         if (defined($snmp->get_request(-varbindlist => [$c_a4_oid]))) { $c_a4 = $snmp->get_request(-varbindlist => [$c_a4_oid]) }
 
-	if (($m_a3 || $m_a4) > 0) {
-		$MonoPagecount = $m_a3 + $m_a4;
-	} elsif ($model =~ m/kyocera|ecosys|taskalfa|4200dn/) {
-		my $tresult = $snmp->get_entries(-columns => [$t_oid]);
+        if (($m_a3 || $m_a4) > 0) {
+                $MonoPagecount = $m_a3 + $m_a4;
+        } elsif ($model =~ m/kyocera|ecosys|taskalfa|4200dn/) {
+                my $tresult = $snmp->get_entries(-columns => [$t_oid]);
                 my $cresult = $snmp->get_entries(-columns => [$c_oid]);
-		my $mresult = $snmp->get_entries(-columns => [$m_oid]);
-	        foreach my $tkey (keys(%$tresult)) {
-	                my($tindex) = ($tkey =~ /($t_oid\.\d+)/);
+                my $mresult = $snmp->get_entries(-columns => [$m_oid]);
+                foreach my $tkey (keys(%$tresult)) {
+                        my($tindex) = ($tkey =~ /($t_oid\.\d+)/);
                         $tresult->{$tkey} =~ s/[^\w\s]//g;
                         $ttmpprs{$tindex}{t_count} = $tresult->{$tkey};
-	        }
-        	foreach my $tkey (keys(%ttmpprs)) {
-	                my $t_count=$ttmpprs{$tkey}{t_count};
-			$TotalPagecount = $TotalPagecount+$t_count;
-		}
+                }
+                foreach my $tkey (keys(%ttmpprs)) {
+                        my $t_count=$ttmpprs{$tkey}{t_count};
+                        $TotalPagecount = $TotalPagecount+$t_count;
+                }
                 foreach my $ckey (keys(%$cresult)) {
                         my($cindex) = ($ckey =~ /($c_oid\.\d+)/);
                         $cresult->{$ckey} =~ s/[^\w\s]//g;
@@ -349,45 +338,45 @@ sub check_page_count {
                         my $m_count=$mtmpprs{$mkey}{m_count};
                         $MonoPagecount = $MonoPagecount+$m_count;
                 }
-	} else {
-	        $result=$snmp->get_request(-varbindlist => [$m_oid]);
-	        if((not defined($result)) || ($result->{$m_oid} eq 'noSuchInstance')) {
-		        $result=$snmp->get_request(-varbindlist => [$t_oid]);
-			        if((not defined($result)) || ($result->{$m_oid} eq 'noSuchInstance')) {
-			                $result=$snmp->get_request(-varbindlist => [$oid]);
-					if ($snmp->error() =~ m/genError/) {
-						$result = retry_snmp($oid,undef,undef,undef,undef,undef,undef,undef);
-					}
-		                        if(not defined($result)) {
-		                                print "CRITICAL - snmp error: " . $snmp->error() . "\n";
-		                                exit($ERRORS{'CRITICAL'});
-		                        } else { $TotalPagecount=$result->{$oid}; }
-				} else { $TotalPagecount=$result->{$t_oid}; }
-	        } else { $MonoPagecount=$result->{$m_oid}; }
-	}
+        } else {
+                $result=$snmp->get_request(-varbindlist => [$m_oid]);
+                if((not defined($result)) || ($result->{$m_oid} eq 'noSuchInstance')) {
+                        $result=$snmp->get_request(-varbindlist => [$t_oid]);
+                                if((not defined($result)) || ($result->{$m_oid} eq 'noSuchInstance')) {
+                                        $result=$snmp->get_request(-varbindlist => [$oid]);
+                                        if ($snmp->error() =~ m/genError/) {
+                                                $result = retry_snmp($oid,undef,undef,undef,undef,undef,undef,undef);
+                                        }
+                                        if(not defined($result)) {
+                                                print "CRITICAL - snmp error: " . $snmp->error() . "\n";
+                                                exit($ERRORS{'CRITICAL'});
+                                        } else { $TotalPagecount=$result->{$oid}; }
+                                } else { $TotalPagecount=$result->{$t_oid}; }
+                } else { $MonoPagecount=$result->{$m_oid}; }
+        }
         if (($c_a3 || $c_a4) > 0) {
-		$ColorPagecount = $c_a3 + $c_a4;
-	} else {
-	        $result=$snmp->get_request(-varbindlist => [$c_oid]);
-	        if(not defined($result)) {
-	        } else { $ColorPagecount=$result->{$c_oid}; }
-	}
-	if (($TotalPagecount) or (($model =~ m/kyocera|ecosys|taskalfa|4200dn/))) {
-		$EXITSTRING = "Pagecount is $TotalPagecount";
-			if ($model =~ m/kyocera|ecosys|taskalfa|4200dn/) {
-				$EXITSTRING.= " Total, $MonoPagecount Black-and-White";
-			}
-	} else { $EXITSTRING = "Pagecount is $MonoPagecount Black-and-White"; }
-	if ($ColorPagecount > 0) {
-		$EXITSTRING.= ", $ColorPagecount Color";
-	}
-	$EXITSTRING.= "\n";
+                $ColorPagecount = $c_a3 + $c_a4;
+        } else {
+                $result=$snmp->get_request(-varbindlist => [$c_oid]);
+                if(not defined($result)) {
+                } else { $ColorPagecount=$result->{$c_oid}; }
+        }
+        if (($TotalPagecount) or (($model =~ m/kyocera|ecosys|taskalfa|4200dn/))) {
+                $EXITSTRING = "Pagecount is $TotalPagecount";
+                        if ($model =~ m/kyocera|ecosys|taskalfa|4200dn/) {
+                                $EXITSTRING.= " Total, $MonoPagecount Black-and-White";
+                        }
+        } else { $EXITSTRING = "Pagecount is $MonoPagecount Black-and-White"; }
+        if ($ColorPagecount > 0) {
+                $EXITSTRING.= ", $ColorPagecount Color";
+        }
+        $EXITSTRING.= "\n";
         if (($TotalPagecount) or ($model =~ m/kyocera|ecosys|taskalfa|4200dn/)) {
-		$EXITSTRING.= "|Total=$TotalPagecount;;;;";
-		if ($model =~ m/kyocera|ecosys|taskalfa|4200dn/) {
-			$EXITSTRING.= " Black-and-White=$MonoPagecount;;;;";
-		}
-	} else { $EXITSTRING.= "|Black-and-White=$MonoPagecount;;;;"; }
+                $EXITSTRING.= "|Total=$TotalPagecount;;;;";
+                if ($model =~ m/kyocera|ecosys|taskalfa|4200dn/) {
+                        $EXITSTRING.= " Black-and-White=$MonoPagecount;;;;";
+                }
+        } else { $EXITSTRING.= "|Black-and-White=$MonoPagecount;;;;"; }
         if ($ColorPagecount > 0) {
                 $EXITSTRING.= " Color=$ColorPagecount;;;;";
         }
@@ -395,7 +384,7 @@ sub check_page_count {
 }
 
 sub get_consumables {
-	my ($result,$Table,$Names,$CurCap,$MaxCap) = @_;
+        my ($result,$Table,$Names,$CurCap,$MaxCap) = @_;
         my %tmpprs = ();
         my ($consumable, $curcap_pct);
         my ($puncher, $found) = 0;
@@ -412,13 +401,13 @@ sub get_consumables {
 
         foreach my $key (keys(%tmpprs)) {
                 my $name=$tmpprs{$key}{name};
-		if ($name =~ m/Imaging Unit|Imaging Kit/) { $consumable = $name; }
-		else { ($consumable = $name) =~ s/(\w+).*/$1/; }
+                if ($name =~ m/Imaging Unit|Imaging Kit/) { $consumable = $name; }
+                else { ($consumable = $name) =~ s/(\w+).*/$1/; }
                 if ($consumable eq "Canon") {
                         my @split = split(' ',$consumable = $name);
                         foreach my $cconsumable (@split) {
-				if ($cconsumable =~ m/Black|Yellow|Magenta|Cyan/) { $consumable = $cconsumable; }
-				else { next; }
+                                if ($cconsumable =~ m/Black|Yellow|Magenta|Cyan/) { $consumable = $cconsumable; }
+                                else { next; }
                         }
                 }
                 if ($consumable eq "Image") {
@@ -432,14 +421,14 @@ sub get_consumables {
                         my @split = split(' ',$consumable = $name);
                         foreach my $gconsumable (@split) {
                                 if ($gconsumable =~ m/Toner/) {
-					($consumable) = $name =~ /\((.*)\)/;
-				} elsif ($gconsumable =~ m/Image|Fusing/) {
-					$consumable = $name;
-				} else {
-					next;
-				}
+                                        ($consumable) = $name =~ /\((.*)\)/;
+                                } elsif ($gconsumable =~ m/Image|Fusing/) {
+                                        $consumable = $name;
+                                } else {
+                                        next;
+                                }
                         }
-		}
+                }
                 if (check_model(2) =~ m/ricoh/) {
                         my @split = split(' ',$consumable = $name);
                         foreach my $rconsumable (@split) {
@@ -452,30 +441,30 @@ sub get_consumables {
                 }
 
                 my $curcap=$tmpprs{$key}{curcap};
-                my $maxcap=$tmpprs{$key}{maxcap};	
+                my $maxcap=$tmpprs{$key}{maxcap};
 
                 if ($name =~ m/Drum|Resttoner|Waste Toner|Belt|Developer/) {
                         next;
                 }
 
-		if ($consumable =~ m/Imaging Unit/) { }
-		elsif ($consumable =~ m/Black|Yellow|Magenta|Cyan/) { $consumable = $consumable." Toner"; }
+                if ($consumable =~ m/Imaging Unit/) { }
+                elsif ($consumable =~ m/Black|Yellow|Magenta|Cyan/) { $consumable = $consumable." Toner"; }
                 elsif ($consumable =~ m/Schwarz|Gelb/) { $consumable = $consumable." Toner"; } # German
-		# Kyocera reports toner as model number so we need to convert that to something human readable
+                # Kyocera reports toner as model number so we need to convert that to something human readable
                 if ($consumable =~ m/TK/) {
                         if ($consumable =~ /CS$|C$/) { $consumable = "Cyan Toner"; }
                         elsif ($consumable =~ /MS$|M$/) { $consumable = "Magenta Toner"; }
                         elsif ($consumable =~ /YS$|Y$/) { $consumable = "Yellow Toner"; }
                         elsif ($consumable =~ /KS$|K$/) { $consumable = "Black Toner"; }
-			else { $consumable = "Black Toner"; }
+                        else { $consumable = "Black Toner"; }
                 }
-		if ($consumable eq 'Magneta') { $consumable = "Magenta Toner"; }  # New HP OID has a typo
-		if ($consumable eq 'Clean') { $consumable = $consumable." Rollers"; }
-		if ($consumable eq 'Document') { $consumable = $consumable." Feeder Kit"; }
-		if ($consumable eq 'Maintenance') { $consumable = $consumable." Kit"; }
-		if ($consumable eq 'Transfer') { $consumable = $consumable." Unit"; }
-		if ($consumable eq 'Stapler') { }
-		if ($consumable eq 'Staples') { }
+                if ($consumable eq 'Magneta') { $consumable = "Magenta Toner"; }  # New HP OID has a typo
+                if ($consumable eq 'Clean') { $consumable = $consumable." Rollers"; }
+                if ($consumable eq 'Document') { $consumable = $consumable." Feeder Kit"; }
+                if ($consumable eq 'Maintenance') { $consumable = $consumable." Kit"; }
+                if ($consumable eq 'Transfer') { $consumable = $consumable." Unit"; }
+                if ($consumable eq 'Stapler') { }
+                if ($consumable eq 'Staples') { }
                 if ($consumable eq 'Saddle') { $consumable = $consumable." Staples"; }
                 if ($consumable eq 'Puncher') { $puncher = 1; $consumable = $consumable. " Waste"; }
 
@@ -490,7 +479,7 @@ sub get_consumables {
                         } else {
                                 $state = "OK";
                         }
-			push (@measurables, '1');
+                        push (@measurables, '1');
                         push (@percentages, $curcap);
                 } else {
                         if ($maxcap>0 && $curcap>0) {
@@ -503,149 +492,149 @@ sub get_consumables {
                                 } else {
                                         $state = "OK";
                                 }
-	                        push (@measurables, '1');
-	                        push (@percentages, $curcap_pct);
+                                push (@measurables, '1');
+                                push (@percentages, $curcap_pct);
                         } elsif ($maxcap == 100 && $curcap == 0) {
                                 $state = "CRITICAL";
-				push (@measurables, '1');
+                                push (@measurables, '1');
                                 push (@percentages, 0);
                         } else {
-				if (check_model(2) =~ m/brother/) {
-					my ($bresult,$bstatus,$boid);
-					if ($consumable =~ m/Black|Schwarz/) {
-						$boid = ".1.3.6.1.4.1.2435.2.3.9.1.1.2.10.1";
-					}
+                                if (check_model(2) =~ m/brother/) {
+                                        my ($bresult,$bstatus,$boid);
+                                        if ($consumable =~ m/Black|Schwarz/) {
+                                                $boid = ".1.3.6.1.4.1.2435.2.3.9.1.1.2.10.1";
+                                        }
                                         if ($consumable =~ m/Cyan/) {
-	                                        $boid = ".1.3.6.1.4.1.2435.2.3.9.1.1.2.10.2";
+                                                $boid = ".1.3.6.1.4.1.2435.2.3.9.1.1.2.10.2";
                                         }
                                         if ($consumable =~ m/Magenta/) {
-	                                        $boid = ".1.3.6.1.4.1.2435.2.3.9.1.1.2.10.3";
+                                                $boid = ".1.3.6.1.4.1.2435.2.3.9.1.1.2.10.3";
                                         }
                                         if ($consumable =~ m/Yellow|Gelb/) {
-	                                        $boid = ".1.3.6.1.4.1.2435.2.3.9.1.1.2.10.4";
+                                                $boid = ".1.3.6.1.4.1.2435.2.3.9.1.1.2.10.4";
                                         }
-					if (defined($snmp->get_request(-varbindlist => [$boid]))) {
-						$bstatus = $bresult->{$oid};
-						if ($bstatus == 0) { $state = "OK"; push (@measurables, 'b0'); $curcap = 100; }
-	                                        if ($bstatus == 1) { $state = "WARNING"; push (@measurables, 'b1'); $curcap = 10; }
-	                                        if ($bstatus == 2) { $state = "CRITICAL"; push (@measurables, 'b2'); $curcap = 0; }
-	                                        if ($bstatus == 3) { $state = "CRITICAL"; push (@measurables, 'b3'); $curcap = 0; }
-					} else { ($state,$curcap) = nonmeasurable($curcap,$maxcap,$name); }
-				} else {
-					$state = nonmeasurable($curcap,$maxcap,$name);
-				}
-				push (@percentages, $curcap);
+                                        if (defined($snmp->get_request(-varbindlist => [$boid]))) {
+                                                $bstatus = $bresult->{$oid};
+                                                if ($bstatus == 0) { $state = "OK"; push (@measurables, 'b0'); $curcap = 100; }
+                                                if ($bstatus == 1) { $state = "WARNING"; push (@measurables, 'b1'); $curcap = 10; }
+                                                if ($bstatus == 2) { $state = "CRITICAL"; push (@measurables, 'b2'); $curcap = 0; }
+                                                if ($bstatus == 3) { $state = "CRITICAL"; push (@measurables, 'b3'); $curcap = 0; }
+                                        } else { ($state,$curcap) = nonmeasurable($curcap,$maxcap,$name); }
+                                } else {
+                                        $state = nonmeasurable($curcap,$maxcap,$name);
+                                }
+                                push (@percentages, $curcap);
                         }
                 }
                 $puncher = 0;
                 push @{ $status[$cnumber] }, $state;
-		$cnumber++;
+                $cnumber++;
         }
 }
 
 sub nonmeasurable {
-	my ($curcap,$maxcap,$name) = @_;
+        my ($curcap,$maxcap,$name) = @_;
 
-	# Our object is not measurable - it's either FULL or EMPTY (such as a punch dust box)
+        # Our object is not measurable - it's either FULL or EMPTY (such as a punch dust box)
         # Let's report on it's status using appropriate terminology
         if (check_model(2) =~ m/brother/) {
-		if ($curcap == -3) { $state = "OK"; push (@measurables, 'b0'); }
-		else {
-	                my $smessage = check_messages(2);
-	                my @messages = split('\n',$smessage);
-	                foreach my $message (@messages) {
-	                        $message = lc $message;
-	                        if ($message =~ m/toner low|wenig toner/) {
-	                                $state = "WARNING";
-					push (@measurables, 'b1');
-					$curcap = 10;
-	                        }
-	                        elsif ($message =~ m/replace toner|toner ersetzen/) {
-	                                $state = "CRITICAL";
-					push (@measurables, 'b3');
-					$curcap = 0;
-	                        }
-	                }
-		}
+                if ($curcap == -3) { $state = "OK"; push (@measurables, 'b0'); }
+                else {
+                        my $smessage = check_messages(2);
+                        my @messages = split('\n',$smessage);
+                        foreach my $message (@messages) {
+                                $message = lc $message;
+                                if ($message =~ m/toner low|wenig toner/) {
+                                        $state = "WARNING";
+                                        push (@measurables, 'b1');
+                                        $curcap = 10;
+                                }
+                                elsif ($message =~ m/replace toner|toner ersetzen/) {
+                                        $state = "CRITICAL";
+                                        push (@measurables, 'b3');
+                                        $curcap = 0;
+                                }
+                        }
+                }
                 push (@measurables, '1');
-		return $state, $curcap;
-	} elsif ($curcap==-3) {
+                return $state, $curcap;
+        } elsif ($curcap==-3) {
                 if ($maxcap>0) { $state = "WARNING"; push (@measurables, 'lt'); }
                 else { $state = "OK"; (@measurables, 'gt'); }
-	} elsif ($curcap==-2) {
-		# The value (-2) means unknown
+        } elsif ($curcap==-2) {
+                # The value (-2) means unknown
                 if ($name =~ m/W2020A|W2021A|W2022A|W2023A/) { # HP Color LaserJet Pro M454dw Toner
-                	$state = "CRITICAL";
-			push (@measurables, '1');
-		 } else { $state = "WARNING"; push (@measurables, '0'); }
-	} elsif ($curcap==0) {
-		# Something is empty!
-		$state = "CRITICAL";
-	}
-	return $state;
+                        $state = "CRITICAL";
+                        push (@measurables, '1');
+                 } else { $state = "WARNING"; push (@measurables, '0'); }
+        } elsif ($curcap==0) {
+                # Something is empty!
+                $state = "CRITICAL";
+        }
+        return $state;
 }
 
 sub prioritize_results {
         my ($metric) = @_;
-	my ($mcount,$scode);
+        my ($mcount,$scode);
 
-	if ((scalar @consumables) > 0) { $mcount = (scalar @consumables); }
+        if ((scalar @consumables) > 0) { $mcount = (scalar @consumables); }
         if ((scalar @strays) > 0) { $mcount = (scalar @strays); }
 
-	$i = 0;
+        $i = 0;
 
-	while ($mcount > 0) {
+        while ($mcount > 0) {
 
-		if ($status[$i][0] eq 'CRITICAL') { $scode = 1; }
+                if ($status[$i][0] eq 'CRITICAL') { $scode = 1; }
                 if ($status[$i][0] eq 'WARNING') { $scode = 2; }
                 if ($status[$i][0] eq 'OK') { $scode = 3; }
 
-		if ($metric eq "consumables") {
-			push @{ $mresults[$i] }, $scode, $status[$i][0], $consumables[$i], $message[$i];
-		}
+                if ($metric eq "consumables") {
+                        push @{ $mresults[$i] }, $scode, $status[$i][0], $consumables[$i], $message[$i];
+                }
                 if ($metric eq "trays") {
                         push @{ $mresults[$i] }, $scode, $status[$i][0], $strays[$i][0], $message[$i];
                 }
-		$mcount--;
-		$i++;
-	}
-
-	@mresults = sort { $a->[0] cmp $b->[0] } @mresults;
-
-	$i = 0;
-	$mcount = (scalar @mresults);
-	while ($mcount > 0) {
-		print "$mresults[$i][1]: $mresults[$i][2]$mresults[$i][3]\n";
                 $mcount--;
                 $i++;
-	}
+        }
+
+        @mresults = sort { $a->[0] cmp $b->[0] } @mresults;
+
+        $i = 0;
+        $mcount = (scalar @mresults);
+        while ($mcount > 0) {
+                print "$mresults[$i][1]: $mresults[$i][2]$mresults[$i][3]\n";
+                $mcount--;
+                $i++;
+        }
 }
 
 sub check_consumables {
-	my %pr_oids = (
-		'Table'		=> '.1.3.6.1.2.1.43.11.1.1',
-		'Names' 	=> '.1.3.6.1.2.1.43.11.1.1.6.1',
-		'CurCap' 	=> '.1.3.6.1.2.1.43.11.1.1.9.1',
-		'MaxCap' 	=> '.1.3.6.1.2.1.43.11.1.1.8.1',
-		'CTable' 	=> '.1.3.6.1.2.1.43.31.1.1',
-		'CNames' 	=> '.1.3.6.1.2.1.43.31.1.1.5.1',
-		'CCurCap' 	=> '.1.3.6.1.2.1.43.31.1.1.8.1',
-		'CMaxCap' 	=> '.1.3.6.1.2.1.43.31.1.1.7.1'
-	);
-	my ($consumable,$measurable,$perfcount);
+        my %pr_oids = (
+                'Table'         => '.1.3.6.1.2.1.43.11.1.1',
+                'Names'         => '.1.3.6.1.2.1.43.11.1.1.6.1',
+                'CurCap'        => '.1.3.6.1.2.1.43.11.1.1.9.1',
+                'MaxCap'        => '.1.3.6.1.2.1.43.11.1.1.8.1',
+                'CTable'        => '.1.3.6.1.2.1.43.31.1.1',
+                'CNames'        => '.1.3.6.1.2.1.43.31.1.1.5.1',
+                'CCurCap'       => '.1.3.6.1.2.1.43.31.1.1.8.1',
+                'CMaxCap'       => '.1.3.6.1.2.1.43.31.1.1.7.1'
+        );
+        my ($consumable,$measurable,$perfcount);
         my $pct_remaining = "";
 
         my $result = $snmp->get_entries(-columns => [$pr_oids{Names}, $pr_oids{CurCap}, $pr_oids{MaxCap}]);
-	if ($snmp->error() =~ m/genError/) {
-		$result = retry_snmp($pr_oids{Names}, $pr_oids{CurCap}, $pr_oids{MaxCap},undef,undef,undef,undef,undef);
-	}
+        if ($snmp->error() =~ m/genError/) {
+                $result = retry_snmp($pr_oids{Names}, $pr_oids{CurCap}, $pr_oids{MaxCap},undef,undef,undef,undef,undef);
+        }
         if(not defined($result)) {
                 print "CRITICAL - snmp error: " . $snmp->error() . "\n";
                 exit($ERRORS{'CRITICAL'});
         }
         my $cresult = $snmp->get_entries(-columns => [$pr_oids{CNames}, $pr_oids{CCurCap}, $pr_oids{CMaxCap}]);
 
-	get_consumables($result, $pr_oids{Table}, $pr_oids{Names}, $pr_oids{CurCap}, $pr_oids{MaxCap});
+        get_consumables($result, $pr_oids{Table}, $pr_oids{Names}, $pr_oids{CurCap}, $pr_oids{MaxCap});
         get_consumables($cresult, $pr_oids{CTable}, $pr_oids{CNames}, $pr_oids{CCurCap}, $pr_oids{CMaxCap});
 
         $tcount = (scalar @consumables);
@@ -653,30 +642,30 @@ sub check_consumables {
         if ($measurable) {
                 if ($consumables[0] eq "Puncher Waste") {
                         $pct_remaining = " is ".$percentages[0]. "% full.";
-		} elsif ($consumables[0] eq "Stapler") {
-			$pct_remaining = "";
-		} elsif (check_model(2) =~ m/brother/) {
-			if ($measurables[$i] eq "b0") {
-				$pct_remaining = " levels are OK.";
-			}
-			if ($measurables[$i] eq "b1") {
-				$pct_remaining = " levels are LOW.";
-			}
-			if ($measurables[$i] eq "b2") {
-				$pct_remaining = " has no toner installed.";
-			}
-			if ($measurables[$i] eq "b3") {
-				$pct_remaining = " levels are EMPTY.";
-			}
-		} elsif ($percentages[$i] eq "-2") {
-			if ($measurables[$i] eq "0") {
-				$pct_remaining = " levels cannot be measured.";
-			} else { $pct_remaining = " is at 0% remaining."; }
+                } elsif ($consumables[0] eq "Stapler") {
+                        $pct_remaining = "";
+                } elsif (check_model(2) =~ m/brother/) {
+                        if ($measurables[$i] eq "b0") {
+                                $pct_remaining = " levels are OK.";
+                        }
+                        if ($measurables[$i] eq "b1") {
+                                $pct_remaining = " levels are LOW.";
+                        }
+                        if ($measurables[$i] eq "b2") {
+                                $pct_remaining = " has no toner installed.";
+                        }
+                        if ($measurables[$i] eq "b3") {
+                                $pct_remaining = " levels are EMPTY.";
+                        }
+                } elsif ($percentages[$i] eq "-2") {
+                        if ($measurables[$i] eq "0") {
+                                $pct_remaining = " levels cannot be measured.";
+                        } else { $pct_remaining = " is at 0% remaining."; }
                 } else {
                         $pct_remaining = " is at ".$percentages[0]. "% remaining.";
                 }
-		push (@message, $pct_remaining);
-        } 
+                push (@message, $pct_remaining);
+        }
         my $perfcount = $tcount;
         if ($tcount > 1) {
                 $tcount--;
@@ -690,40 +679,40 @@ sub check_consumables {
                                 if ($consumables[$i] eq "Puncher Waste") {
                                         $pct_remaining = " is ".$percentages[$i]. "% full.";
                                 } elsif ($consumables[$i] eq "Stapler") {
-					$pct_remaining = "";
+                                        $pct_remaining = "";
                                 } elsif (check_model(2) =~ m/brother/) {
-					if ($measurables[$i] eq "b0") {
-						$pct_remaining = " levels are OK.";
-					}
-					if ($measurables[$i] eq "b1") {
-						$pct_remaining = " levels are LOW.";
-					}
-					if ($measurables[$i] eq "b2") {
-						$pct_remaining = " has no toner installed.";
-					}
-					if ($measurables[$i] eq "b3") {
-						$pct_remaining = " levels are EMPTY.";
-					}
-				} elsif ($percentages[$i] eq "-2") {
-					if ($measurables[$i] eq "0") {
-						$pct_remaining = " levels cannot be measured.";
-					} else { $pct_remaining = " is at 0% remaining."; }
-				} elsif ($percentages[$i] eq "-3") {
-					if ($measurables[$i] eq "lt") {
-						$pct_remaining = " levels are LOW.";
-					}
-					if ($measurables[$i] eq "gt") {
-						$pct_remaining = " levels are OK.";
-					}
-				} else {
+                                        if ($measurables[$i] eq "b0") {
+                                                $pct_remaining = " levels are OK.";
+                                        }
+                                        if ($measurables[$i] eq "b1") {
+                                                $pct_remaining = " levels are LOW.";
+                                        }
+                                        if ($measurables[$i] eq "b2") {
+                                                $pct_remaining = " has no toner installed.";
+                                        }
+                                        if ($measurables[$i] eq "b3") {
+                                                $pct_remaining = " levels are EMPTY.";
+                                        }
+                                } elsif ($percentages[$i] eq "-2") {
+                                        if ($measurables[$i] eq "0") {
+                                                $pct_remaining = " levels cannot be measured.";
+                                        } else { $pct_remaining = " is at 0% remaining."; }
+                                } elsif ($percentages[$i] eq "-3") {
+                                        if ($measurables[$i] eq "lt") {
+                                                $pct_remaining = " levels are LOW.";
+                                        }
+                                        if ($measurables[$i] eq "gt") {
+                                                $pct_remaining = " levels are OK.";
+                                        }
+                                } else {
                                         $pct_remaining = " is at ".$percentages[$i]. "% remaining.";
                                 }
-			}
-			push (@message, $pct_remaining);
+                        }
+                        push (@message, $pct_remaining);
                         $tcount--;
                 }
         }
-	prioritize_results('consumables');	
+        prioritize_results('consumables');
         $i = 0;
         $EXITSTRING.= "|";
         while ($perfcount > 0) {
@@ -734,15 +723,15 @@ sub check_consumables {
                 }
                 ($consumable = $consumables[$i]) =~ s/ /_/g;
                 if ($measurable) {
-			if ($consumable eq "Stapler") {
-		                if ($status[$i] eq 'CRITICAL') { $EXITSTRING.= $consumable."=0"; }
-		                elsif ($status[$i] eq 'OK') { $EXITSTRING.= $consumable."=100"; }
-			} elsif ($percentages[$i] eq "-2") {
+                        if ($consumable eq "Stapler") {
+                                if ($status[$i] eq 'CRITICAL') { $EXITSTRING.= $consumable."=0"; }
+                                elsif ($status[$i] eq 'OK') { $EXITSTRING.= $consumable."=100"; }
+                        } elsif ($percentages[$i] eq "-2") {
                                 if ($measurables[$i] eq "0") { }
-				else { $EXITSTRING.= "$consumable=0"; }
-			} else {
-	                        $EXITSTRING.= $consumable."=".$percentages[$i];
-			}
+                                else { $EXITSTRING.= "$consumable=0"; }
+                        } else {
+                                $EXITSTRING.= $consumable."=".$percentages[$i];
+                        }
                 } else {
                         if ($status[$i] == "CRITICAL") {
                                 $EXITSTRING.= $consumable."=0";
@@ -760,24 +749,24 @@ sub check_paper_trays {
         my $found=0;
         my %tmpprs = ();
         my ($name,$lcname,$feeder,$cap,$tstatus,$traymessage,$maxcap,$feeddim,$xfeeddim,$cap_pct);
-	my %tray_oids = (
-		'Table'		=> '.1.3.6.1.2.1.43.8.2.1',
-		'Cap'		=> '.1.3.6.1.2.1.43.8.2.1.10.1',
-		'Status'	=> '.1.3.6.1.2.1.43.8.2.1.11.1',
-		'MaxCap'	=> '.1.3.6.1.2.1.43.8.2.1.9.1',
-		'Name'		=> '.1.3.6.1.2.1.43.8.2.1.13.1',
-		'FeedDim'	=> '.1.3.6.1.2.1.43.8.2.1.4.1',
-		'FeedDimUnits'	=> '.1.3.6.1.2.1.43.8.2.1.2.1',
-		'XFeedDim'	=> '.1.3.6.1.2.1.43.8.2.1.5.1',
-		'XFeedDimUnits'	=> '.1.3.6.1.2.1.43.8.2.1.3.1'
-	);
+        my %tray_oids = (
+                'Table'         => '.1.3.6.1.2.1.43.8.2.1',
+                'Cap'           => '.1.3.6.1.2.1.43.8.2.1.10.1',
+                'Status'        => '.1.3.6.1.2.1.43.8.2.1.11.1',
+                'MaxCap'        => '.1.3.6.1.2.1.43.8.2.1.9.1',
+                'Name'          => '.1.3.6.1.2.1.43.8.2.1.13.1',
+                'FeedDim'       => '.1.3.6.1.2.1.43.8.2.1.4.1',
+                'FeedDimUnits'  => '.1.3.6.1.2.1.43.8.2.1.2.1',
+                'XFeedDim'      => '.1.3.6.1.2.1.43.8.2.1.5.1',
+                'XFeedDimUnits' => '.1.3.6.1.2.1.43.8.2.1.3.1'
+        );
         my $result = $snmp->get_entries(-columns => [$tray_oids{Name},$tray_oids{Cap},$tray_oids{MaxCap},$tray_oids{FeedDim},$tray_oids{FeedDimUnits},$tray_oids{XFeedDim},$tray_oids{XFeedDimUnits},$tray_oids{Status}]);
         my $model = "Unknown Model";
         my $mresult = $snmp->get_request(-varbindlist => [".1.3.6.1.2.1.25.3.2.1.3.1"]);
         ($mresult) && ($model=$mresult->{".1.3.6.1.2.1.25.3.2.1.3.1"});
 
         if ($snmp->error() =~ m/genError/) {
-                $result = retry_snmp($tray_oids{Name},$tray_oids{Cap},$tray_oids{MaxCap},$tray_oids{FeedDim},$tray_oids{FeedDimUnits},$tray_oids{XFeedDim},$tray_oids{XFeedDimUnits},$tray_oids{Status}); 
+                $result = retry_snmp($tray_oids{Name},$tray_oids{Cap},$tray_oids{MaxCap},$tray_oids{FeedDim},$tray_oids{FeedDimUnits},$tray_oids{XFeedDim},$tray_oids{XFeedDimUnits},$tray_oids{Status});
         }
 
         if(not defined($result)) {
@@ -810,18 +799,18 @@ sub check_paper_trays {
                 if ($name =~ m/(MPT)/) {
                         $name =~ s/ \(MPT\)//g;
                 }
-		if ($name =~ m/Paper Tray/) {
-		        ($name) = $name =~ /[^ ]* (.*)/;
-		}
+                if ($name =~ m/Paper Tray/) {
+                        ($name) = $name =~ /[^ ]* (.*)/;
+                }
                 $name =~ s/\n/\!/g;
-		if ($name =~ m/TRAY/) {
-			if ($name =~ /(?<=TRAY)[0-9]/) {
-				my @split = split(/(?<=\d)(?=\D)|(?<=\D)(?=\d)/, $name);
-					$name = @split[0]." ".@split[1];
-			}
-			$name = (ucfirst(lc($name)));
-		}
-		$lcname = lc($name);
+                if ($name =~ m/TRAY/) {
+                        if ($name =~ /(?<=TRAY)[0-9]/) {
+                                my @split = split(/(?<=\d)(?=\D)|(?<=\D)(?=\d)/, $name);
+                                        $name = @split[0]." ".@split[1];
+                        }
+                        $name = (ucfirst(lc($name)));
+                }
+                $lcname = lc($name);
                 if (($lcname =~ m/stack bypass|mp tray|manual paper|manual envelope|multi-purpose_tray/) and ($opt_nofeeder)) { $feeder=1; next; }
                 if (($lcname =~ m/tray 1/) and ($opt_nofeeder) and (scalar(keys(%tmpprs) > 1)) and $feeder != 1) { next; }
                 $found=1;
@@ -829,7 +818,7 @@ sub check_paper_trays {
                 $traynumber++;
         }
 
-	$traynumber = 0;
+        $traynumber = 0;
         @strays = sort { $a->[0] cmp $b->[0] } @trays;
         $tcount = scalar(@strays);
         my $perfcount = $tcount;
@@ -841,40 +830,40 @@ sub check_paper_trays {
                 $feeddim        = $strays[$i][3];
                 $xfeeddim       = $strays[$i][4];
                 $tstatus        = $strays[$i][5];
-		$lcname		= lc($name);
+                $lcname         = lc($name);
 
-		if ($feeddim eq	'-2') { $feeddim = "Any"; }
+                if ($feeddim eq '-2') { $feeddim = "Any"; }
                 if ($xfeeddim eq '-2') { $xfeeddim = "Any"; }
 
-	        $model = check_model(2);
+                $model = check_model(2);
                 if (($feeddim || $xfeeddim) ne 'Any') {
-		        if ($model =~ m/canon|xerox|ricoh|brother/) {
-	                        if ($opt_metric) {
-	                                $feeddim = sprintf("%.0f", $feeddim * .001)."mm";
-	                                $xfeeddim = sprintf("%.0f", $xfeeddim * .001)."mm";
-	                        } else {
-	                                $feeddim = sprintf("%.2f", (($feeddim / 2.54) * .0001))."in";
-	                                $xfeeddim = sprintf("%.2f", (($xfeeddim / 2.54) * .0001))."in";
-				}
-			} else {
+                        if ($model =~ m/canon|xerox|ricoh|brother/) {
+                                if ($opt_metric) {
+                                        $feeddim = sprintf("%.0f", $feeddim * .001)."mm";
+                                        $xfeeddim = sprintf("%.0f", $xfeeddim * .001)."mm";
+                                } else {
+                                        $feeddim = sprintf("%.2f", (($feeddim / 2.54) * .0001))."in";
+                                        $xfeeddim = sprintf("%.2f", (($xfeeddim / 2.54) * .0001))."in";
+                                }
+                        } else {
                                 if ($opt_metric) {
                                         $feeddim = sprintf("%.0f", (($feeddim * 2.54) * .001))."mm";
                                         $xfeeddim = sprintf("%.0f", (($xfeeddim * 2.54) * .001))."mm";
                                 } else {
                                         $feeddim = sprintf("%.2f", $feeddim * .0001)."in";
                                         $xfeeddim = sprintf("%.2f", $xfeeddim  * .0001)."in";
-				}
-			}
-		}
-		
-		if ($cap == -3) {
+                                }
+                        }
+                }
+
+                if ($cap == -3) {
                         # The value (-3) means that the printer knows that at least one unit remains.
                         if ($model =~ m/lexmark/) { # When -3, Lexmark is really low status.
-				if (($opt_critical == 0) or ($opt_warning == 0 )) {
-					$state = "OK";
-				} else {
-                                	$state = "WARNING";
-				}
+                                if (($opt_critical == 0) or ($opt_warning == 0 )) {
+                                        $state = "OK";
+                                } else {
+                                        $state = "WARNING";
+                                }
                                 $traymessage = " is LOW. ($xfeeddim x $feeddim)";
                         } else {
                                 $state = "OK";
@@ -884,45 +873,45 @@ sub check_paper_trays {
                         # The value (-2) means unknown
                         # so lets check the tray status instead
                         if ($tstatus eq '0') {
-				if ($model =~ m/canon|hp|ricoh/) {
-					$state = "OK";
-		                        $traymessage = " ($xfeeddim x $feeddim)";
-                                } else {
-					$state = "WARNING";
-					$traymessage = " is in an UNKNOWN state.";
-				}
-	                        if (($lcname =~ m/tray 1|stack bypass|mp tray|manual paper|manual envelope|multi-purpose_tray/) and ($state ne 'WARNING')) {
-                                        $traymessage = "";
-				}
-			} elsif ($tstatus eq '4') {
-				if ($model =~ m/lexmark/) {
-					$state = "OK";
-					$traymessage = " ($xfeeddim x $feeddim)";
-				}
-			} elsif ($tstatus eq '9') {
-				if ($model =~ m/hp/) {
-					$state = "OK";
+                                if ($model =~ m/canon|hp|ricoh/) {
+                                        $state = "OK";
                                         $traymessage = " ($xfeeddim x $feeddim)";
-				}
-			} else {
+                                } else {
+                                        $state = "WARNING";
+                                        $traymessage = " is in an UNKNOWN state.";
+                                }
+                                if (($lcname =~ m/tray 1|stack bypass|mp tray|manual paper|manual envelope|multi-purpose_tray/) and ($state ne 'WARNING')) {
+                                        $traymessage = "";
+                                }
+                        } elsif ($tstatus eq '4') {
+                                if ($model =~ m/lexmark/) {
+                                        $state = "OK";
+                                        $traymessage = " ($xfeeddim x $feeddim)";
+                                }
+                        } elsif ($tstatus eq '9') {
+                                if ($model =~ m/hp/) {
+                                        $state = "OK";
+                                        $traymessage = " ($xfeeddim x $feeddim)";
+                                }
+                        } else {
                                 # still unknown so we'll mark it warning because we just don't know
-				$state = "WARNING";
-				$traymessage = " is in UNKNOWN status.";
-			}
+                                $state = "WARNING";
+                                $traymessage = " is in UNKNOWN status.";
+                        }
                 } elsif ($cap == 0) {
                         # 0 means there is no paper left! This is our only critical value.
                         # first lets check to see if it's a bypass tray, we'll always assume Tray 1 is such.
                         if ($lcname =~ m/tray 1|stack bypass|mp tray|manual paper|manual envelope|multi-purpose_tray/) {
                                         $state = "CRITICAL";
-					if (($xfeeddim || $feeddim) ne 'Any') {
-						$traymessage = " ($xfeeddim x $feeddim)";
-					} else { $traymessage = " is empty."; }
+                                        if (($xfeeddim || $feeddim) ne 'Any') {
+                                                $traymessage = " ($xfeeddim x $feeddim)";
+                                        } else { $traymessage = " is empty."; }
                                 } else {
-					if ($opt_critical > 0) {
-                                        	$state = "CRITICAL";
-					} else {
-		                                $state = "OK";
-					}
+                                        if ($opt_critical > 0) {
+                                                $state = "CRITICAL";
+                                        } else {
+                                                $state = "OK";
+                                        }
                                         $traymessage = " ($xfeeddim x $feeddim) is at 0% paper remaining.";
                                 }
                         $cap_pct=sprintf("%.2f",$cap*100/$maxcap);
@@ -938,7 +927,7 @@ sub check_paper_trays {
                 }
                 push @{ $status[$traynumber] }, $state, $cap_pct;
                 push (@message, $traymessage);
-		$traynumber++;
+                $traynumber++;
                 $tcount--;
                 $i++;
         }
@@ -948,20 +937,20 @@ sub check_paper_trays {
         while ($perfcount > 0) {
                 (my $tray = $strays[$i][0]) =~ s/ /_/g;
                 if ($status[$i][0] eq 'CRITICAL') {
-			if ($status[$i][1] != "") {
-				$EXITSTRING.= $tray."=$status[$i][1]";
-			} else { $EXITSTRING.= $tray."=0"; }
-		}
-		if ($status[$i][0] eq 'WARNING') {
+                        if ($status[$i][1] != "") {
+                                $EXITSTRING.= $tray."=$status[$i][1]";
+                        } else { $EXITSTRING.= $tray."=0"; }
+                }
+                if ($status[$i][0] eq 'WARNING') {
                         if ($status[$i][1] != "") {
                                 $EXITSTRING.= $tray."=$status[$i][1]";
                         } else { $EXITSTRING.= $tray."=10"; }
-		}
-		if ($status[$i][0] eq 'OK') {
+                }
+                if ($status[$i][0] eq 'OK') {
                         if ($status[$i][1] != "") {
                                 $EXITSTRING.= $tray."=$status[$i][1]";
                         } else { $EXITSTRING.= $tray."=100"; }
-		}
+                }
                 $i++;
                 $perfcount--;
                 if ($perfcount == 0) { $EXITSTRING.= ";;;;"; } else { $EXITSTRING.=";;;; "; }
@@ -970,13 +959,13 @@ sub check_paper_trays {
 sub retry_snmp {
         my ($sr1,$sr2,$sr3,$sr4,$sr5,$sr6,$sr7,$sr8) = @_;
 
-	if ($sr8) {
-		return $snmp->get_entries(-columns => [$sr1,$sr2,$sr3,$sr4,$sr5,$sr6,$sr7,$sr8]);
-	} elsif ($sr2) {
-		return $snmp->get_entries(-columns => [$sr1,$sr2,$sr3]);
-	} else {
-		return $snmp->get_request(-varbindlist => [$sr1]);
-	}
+        if ($sr8) {
+                return $snmp->get_entries(-columns => [$sr1,$sr2,$sr3,$sr4,$sr5,$sr6,$sr7,$sr8]);
+        } elsif ($sr2) {
+                return $snmp->get_entries(-columns => [$sr1,$sr2,$sr3]);
+        } else {
+                return $snmp->get_request(-varbindlist => [$sr1]);
+        }
 }
 
 # set alarm in case we hang
@@ -1006,12 +995,12 @@ if ($opt_consum) {check_consumables();}
 if (defined($opt_tray)) {check_paper_trays($opt_tray);}
 
 $i = 0;
-$scount = (scalar @status); 
+$scount = (scalar @status);
 while ($scount > 0) {
         if ($status[$i][0] eq "CRITICAL") { $critcount++; }
         if (($status[$i][0] eq "WARNING") && ($state ne "CRITICAL")) { $warncount++; }
-	$scount--;
-	$i++;
+        $scount--;
+        $i++;
 }
 
 if ($critcount > 0) { $state = "CRITICAL"; }
