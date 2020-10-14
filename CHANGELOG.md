@@ -1,5 +1,14 @@
+<a name="1.2.3"></a>
+# [1.2.3](https://github.com/Tylan/check_snmp_printer/compare/v1.2.2...v1.2.3) (2020-10-14)
+
+### Bug Fixes
+* Fixed output for --messages option so it will display for more devices.
+
+### Features
+* Added German word niedrig to warning list on messages output
+
 <a name="1.2.2"></a>
-# [1.2.2](https://github.com/Tylan/check_snmp_printer/compare/v1.2.1...v1.2.2) (2020-09-16)
+# [1.2.2](https://github.com/Tylan/check_snmp_printer/compare/v1.2.1...v1.2.2) (2020-09-06)
 
 ### Features
 
@@ -28,13 +37,13 @@
 
 ### Bug Fixes
 
-* Added library check for /usr/lib/nagios/plugins folder to support Debian systems 
+* Added library check for /usr/lib/nagios/plugins folder to support Debian systems
 * Fixed typo in OID lookup for serial number
 * Fixed it so you can disable tray status warning and critical messages by setting their value to 0
 
 ### Features
 
-* Added support for Ricoh printers 
+* Added support for Ricoh printers
 * Added support for Brother printers
 * Added the ability to disable checking of the manual feed tray
 
@@ -108,7 +117,7 @@
 ### Performance Improvements
 
 * Fixed display output for non measurable toners
-* Cleaned up code 
+* Cleaned up code
 
 
 
