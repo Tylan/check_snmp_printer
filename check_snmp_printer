@@ -3,7 +3,7 @@
 #                                                       #
 #                                                       #
 #      SNMP Printer Check Plugin for Icinga             #
-#            Version 1.2.3 (October 14, 2020)           #
+#        Version 1.3.0 (September 24, 2021)             #
 #                by Rob McLoughlin                      #
 #         E-mail: rmcloughlin@outlook.com               #
 #                                                       #
@@ -50,7 +50,9 @@ use vars qw(
   $opt_version $opt_help $opt_timeout $opt_retries $opt_host
   $opt_community $opt_snmpver $opt_warning $opt_critical
   $opt_messages $opt_model $opt_consum $opt_tray $opt_pagecount
-  $opt_metric $opt_nofeeder
+  $opt_metric $opt_nofeeder $opt_nofuser $opt_user $opt_authpass
+  $opt_authkey $opt_authproto $opt_privkey $opt_privpass
+  $opt_privproto $opt_contextname
 );
 my (@consumables,@status,@trays,@strays,@percentages,@mresults,@message,@measurables);
 my ($state,$statuscode,$EXITSTRING);
@@ -61,7 +63,7 @@ my %STATUS_CODE =
 
 # config
 $PROGNAME    = $0;
-$VERSION     = '1.2.3';
+$VERSION     = '1.3.0';
 
 # init options
 $opt_version    = undef;
@@ -79,6 +81,14 @@ $opt_consum     = undef;
 $opt_tray       = undef;
 $opt_pagecount  = undef;
 $opt_metric     = undef;
+$opt_user       = undef;
+$opt_authpass   = undef;
+$opt_authproto  = undef;
+$opt_authkey    = undef;
+$opt_privpass   = undef;
+$opt_privproto  = undef;
+$opt_privkey    = undef;
+$opt_contextname = undef;
 
 # get options
 Getopt::Long::Configure('bundling');
@@ -98,7 +108,16 @@ GetOptions(
   'trays'               => \$opt_tray,
   'pagecount'           => \$opt_pagecount,
   'nofeeder'            => \$opt_nofeeder,
-  'metric'              => \$opt_metric
+  'nofuser'             => \$opt_nofuser,
+  'metric'              => \$opt_metric,
+  'u|user=s'            => \$opt_user,
+  'A|authpass=s'        => \$opt_authpass,
+  'a|authproto=s'       => \$opt_authproto,
+  'y|authkey=s'         => \$opt_authkey,
+  'X|privpass=s'        => \$opt_privpass,
+  'x|privproto=s'       => \$opt_privproto,
+  'z|privkey=s'         => \$opt_privkey,
+  'n|contextname=s'     => \$opt_contextname
 ) or do {
   print_usage();
   exit($ERRORS{'UNKNOWN'});
@@ -191,10 +210,30 @@ Optional Arguments:
     Number of seconds to wait for a response.
  -r, --retries=INTEGER
     Number of retries to try before timing out. Default: 3
+ -u, --user=STRING
+    User for SNMPv3 authentication
+ -A, --authpass=STRING
+    SNMPv3 authentication password
+ -a, --authproto=STRING
+    SNMPv3 authentication protocol
+ -y, --authkey=STRING
+    SNMPv3 authentication key
+ -X, --privpass=STRING
+    SNMPv3 privacy password
+ -x, --privproto=STRING
+    SNMPv3 privacy protocol
+ -z, --privkey=STRING
+    SNMPv3 privacy key
+ -n, --contextname=STRING
+    Contextname for SNMPv3
+
  --metric
     Converts output to metric.  Default: imperial
  --nofeeder
     Disables checking of the manual feeder tray
+ --nofuser
+    Disables checking of the fuser unit
+
 EOB
 }
 
@@ -203,16 +242,29 @@ sub check_model {
         my ($oid,$result);
         my $MODEL="Uknown model";
         my $SERIAL="";
-
         if ($pcheck == 1 || $pcheck == 2) {
                 $oid=".1.3.6.1.2.1.25.3.2.1.3.1";
-                $result=$snmp->get_request(-varbindlist => [$oid]);
+                if ($opt_contextname) {
+                        $result=$snmp->get_request(
+                                        -contextname    => $opt_contextname,
+                                        -varbindlist    => [$oid]
+                                        );
+                } else {
+                        $result=$snmp->get_request(-varbindlist => [$oid]);
+                }
                 ($result) && ($MODEL=$result->{$oid});
                 if ($pcheck == 2) { return lc $MODEL; }
         }
         if ($pcheck == 1) {
                 $oid=".1.3.6.1.2.1.43.5.1.1.17.1";
-                $result=$snmp->get_request(-varbindlist => [$oid]);
+                if ($opt_contextname) {
+                        $result=$snmp->get_request(
+                                        -contextname    => $opt_contextname,
+                                        -varbindlist    => [$oid]
+                                        );
+                } else {
+                        $result=$snmp->get_request(-varbindlist => [$oid]);
+                }
                 ($result) && ($SERIAL=$result->{$oid});
                 $SERIAL =~ s/\"//g;
 
@@ -363,9 +415,9 @@ sub check_page_count {
         }
         if (($TotalPagecount) or (($model =~ m/kyocera|ecosys|taskalfa|4200dn/))) {
                 $EXITSTRING = "Pagecount is $TotalPagecount";
-                        if ($model =~ m/kyocera|ecosys|taskalfa|4200dn/) {
-                                $EXITSTRING.= " Total, $MonoPagecount Black-and-White";
-                        }
+                if ($model =~ m/kyocera|ecosys|taskalfa|4200dn/) {
+                        $EXITSTRING.= " Total, $MonoPagecount Black-and-White";
+                }
         } else { $EXITSTRING = "Pagecount is $MonoPagecount Black-and-White"; }
         if ($ColorPagecount > 0) {
                 $EXITSTRING.= ", $ColorPagecount Color";
@@ -403,6 +455,7 @@ sub get_consumables {
                 my $name=$tmpprs{$key}{name};
                 if ($name =~ m/Imaging Unit|Imaging Kit/) { $consumable = $name; }
                 else { ($consumable = $name) =~ s/(\w+).*/$1/; }
+                if (($consumable =~ m/Fuser/ and $opt_nofuser)) { next; }
                 if ($consumable eq "Canon") {
                         my @split = split(' ',$consumable = $name);
                         foreach my $cconsumable (@split) {
@@ -443,7 +496,7 @@ sub get_consumables {
                 my $curcap=$tmpprs{$key}{curcap};
                 my $maxcap=$tmpprs{$key}{maxcap};
 
-                if ($name =~ m/Drum|Resttoner|Waste Toner|Belt|Developer/) {
+                if ($name =~ m/Drum|Resttoner|Waste Toner|Belt|Developer|200K|300K|Developer|Photoconductor|Staples G/) {
                         next;
                 }
 
@@ -451,11 +504,19 @@ sub get_consumables {
                 elsif ($consumable =~ m/Black|Yellow|Magenta|Cyan/) { $consumable = $consumable." Toner"; }
                 elsif ($consumable =~ m/Schwarz|Gelb/) { $consumable = $consumable." Toner"; } # German
                 # Kyocera reports toner as model number so we need to convert that to something human readable
-                if ($consumable =~ m/TK/) {
+                if ($consumable =~ m/TK|CK/) {
                         if ($consumable =~ /CS$|C$/) { $consumable = "Cyan Toner"; }
                         elsif ($consumable =~ /MS$|M$/) { $consumable = "Magenta Toner"; }
                         elsif ($consumable =~ /YS$|Y$/) { $consumable = "Yellow Toner"; }
                         elsif ($consumable =~ /KS$|K$/) { $consumable = "Black Toner"; }
+                        else { $consumable = "Black Toner"; }
+                }
+                # Some HP reports toner as model number so we need to convert that to something human readable
+                if ($consumable =~ m/CE/) {
+                        if ($consumable =~ /1A$/) { $consumable = "Cyan Toner"; }
+                        elsif ($consumable =~ /3A$/) { $consumable = "Magenta Toner"; }
+                        elsif ($consumable =~ /2A$/) { $consumable = "Yellow Toner"; }
+                        elsif ($consumable =~ /0A$/) { $consumable = "Black Toner"; }
                         else { $consumable = "Black Toner"; }
                 }
                 if ($consumable eq 'Magneta') { $consumable = "Magenta Toner"; }  # New HP OID has a typo
@@ -463,9 +524,11 @@ sub get_consumables {
                 if ($consumable eq 'Document') { $consumable = $consumable." Feeder Kit"; }
                 if ($consumable eq 'Maintenance') { $consumable = $consumable." Kit"; }
                 if ($consumable eq 'Transfer') { $consumable = $consumable." Unit"; }
+                if ($consumable eq 'Fuser') { $consumable = $consumable." Kit"; }
                 if ($consumable eq 'Stapler') { }
                 if ($consumable eq 'Staples') { }
                 if ($consumable eq 'Saddle') { $consumable = $consumable." Staples"; }
+                if ($consumable eq 'Hole') { $puncher = 1; $consumable = $consumable. " Punch Box"; }
                 if ($consumable eq 'Puncher') { $puncher = 1; $consumable = $consumable. " Waste"; }
 
                 push (@consumables, $consumable);
@@ -566,7 +629,7 @@ sub nonmeasurable {
                 if ($name =~ m/W2020A|W2021A|W2022A|W2023A/) { # HP Color LaserJet Pro M454dw Toner
                         $state = "CRITICAL";
                         push (@measurables, '1');
-                 } else { $state = "WARNING"; push (@measurables, '0'); }
+                } else { $state = "WARNING"; push (@measurables, '0'); }
         } elsif ($curcap==0) {
                 # Something is empty!
                 $state = "CRITICAL";
@@ -621,16 +684,49 @@ sub check_consumables {
                 'CCurCap'       => '.1.3.6.1.2.1.43.31.1.1.8.1',
                 'CMaxCap'       => '.1.3.6.1.2.1.43.31.1.1.7.1'
         );
+
         my ($consumable,$measurable,$perfcount);
         my $pct_remaining = "";
+        my %nsioids;
+        my $nsicounter = 1;
+        my $nsioidrow = 1;
+        my $result;
 
-        my $result = $snmp->get_entries(-columns => [$pr_oids{Names}, $pr_oids{CurCap}, $pr_oids{MaxCap}]);
+        if ($opt_contextname) {
+                $result = $snmp->get_entries(
+                        -contextname   => $opt_contextname,
+                        -columns       => [$pr_oids{Names}, $pr_oids{CurCap}, $pr_oids{MaxCap}],
+                        );
+        } else {
+                $result = $snmp->get_entries(-columns => [$pr_oids{Names}, $pr_oids{CurCap}, $pr_oids{MaxCap}]);
+        }
         if ($snmp->error() =~ m/genError/) {
                 $result = retry_snmp($pr_oids{Names}, $pr_oids{CurCap}, $pr_oids{MaxCap},undef,undef,undef,undef,undef);
         }
         if(not defined($result)) {
-                print "CRITICAL - snmp error: " . $snmp->error() . "\n";
-                exit($ERRORS{'CRITICAL'});
+                if ($snmp->error() =~ m/The requested entries are empty or do not exist/) {
+                        while ($nsicounter gt 0) {
+                                my $nsiName = "$pr_oids{Names}.$nsioidrow";
+                                my $nsiCurCap = "$pr_oids{CurCap}.$nsioidrow";
+                                my $nsiMaxCap = "$pr_oids{MaxCap}.$nsioidrow";
+                                my $nsiNresult = $snmp->get_request(-varbindlist => [$nsiName]);
+                                my $nsiCresult = $snmp->get_request(-varbindlist => [$nsiCurCap]);
+                                my $nsiMresult = $snmp->get_request(-varbindlist => [$nsiMaxCap]);
+                                if ($nsiNresult->{$nsiName} eq "noSuchInstance") { $nsicounter = 0; }
+                                else {
+                                        %nsioids = (%nsioids,
+                                                $nsiName => $nsiNresult->{$nsiName},
+                                                $nsiCurCap => $nsiCresult->{$nsiCurCap},
+                                                $nsiMaxCap => $nsiMresult->{$nsiMaxCap}
+                                        );
+                                }
+                                $nsioidrow++;
+                        }
+                        $result = \%nsioids;
+                } else {
+                        print "CRITICAL - snmp error: " . $snmp->error() . "\n";
+                        exit($ERRORS{'CRITICAL'});
+                }
         }
         my $cresult = $snmp->get_entries(-columns => [$pr_oids{CNames}, $pr_oids{CCurCap}, $pr_oids{CMaxCap}]);
 
@@ -640,7 +736,7 @@ sub check_consumables {
         $tcount = (scalar @consumables);
         if (@percentages != 0 ) { $measurable = 1; }
         if ($measurable) {
-                if ($consumables[0] eq "Puncher Waste") {
+                if ($consumables[0] =~ m/Puncher Waste|Hole Punch Box/) {
                         $pct_remaining = " is ".$percentages[0]. "% full.";
                 } elsif ($consumables[0] eq "Stapler") {
                         $pct_remaining = "";
@@ -676,7 +772,7 @@ sub check_consumables {
                                 next;
                         }
                         if ($measurable) {
-                                if ($consumables[$i] eq "Puncher Waste") {
+                                if ($consumables[$i] =~ m/Puncher Waste|Hole Punch Box/) {
                                         $pct_remaining = " is ".$percentages[$i]. "% full.";
                                 } elsif ($consumables[$i] eq "Stapler") {
                                         $pct_remaining = "";
@@ -748,7 +844,7 @@ sub check_consumables {
 sub check_paper_trays {
         my $found=0;
         my %tmpprs = ();
-        my ($name,$lcname,$feeder,$cap,$tstatus,$traymessage,$maxcap,$feeddim,$xfeeddim,$cap_pct);
+        my ($name,$lcname,$feeder,$cap,$tstatus,$traymessage,$maxcap,$feeddim,$xfeeddim,$cap_pct,$result);
         my %tray_oids = (
                 'Table'         => '.1.3.6.1.2.1.43.8.2.1',
                 'Cap'           => '.1.3.6.1.2.1.43.8.2.1.10.1',
@@ -760,7 +856,15 @@ sub check_paper_trays {
                 'XFeedDim'      => '.1.3.6.1.2.1.43.8.2.1.5.1',
                 'XFeedDimUnits' => '.1.3.6.1.2.1.43.8.2.1.3.1'
         );
-        my $result = $snmp->get_entries(-columns => [$tray_oids{Name},$tray_oids{Cap},$tray_oids{MaxCap},$tray_oids{FeedDim},$tray_oids{FeedDimUnits},$tray_oids{XFeedDim},$tray_oids{XFeedDimUnits},$tray_oids{Status}]);
+
+        if ($opt_contextname) {
+                $result = $snmp->get_entries(
+                        -contextname   => $opt_contextname,
+                        -columns => [$tray_oids{Name},$tray_oids{Cap},$tray_oids{MaxCap},$tray_oids{FeedDim},$tray_oids{FeedDimUnits},$tray_oids{XFeedDim},$tray_oids{XFeedDimUnits},$tray_oids{Status}]
+                        );
+        } else {
+                $result = $snmp->get_entries(-columns => [$tray_oids{Name},$tray_oids{Cap},$tray_oids{MaxCap},$tray_oids{FeedDim},$tray_oids{FeedDimUnits},$tray_oids{XFeedDim},$tray_oids{XFeedDimUnits},$tray_oids{Status}]);
+        }
         my $model = "Unknown Model";
         my $mresult = $snmp->get_request(-varbindlist => [".1.3.6.1.2.1.25.3.2.1.3.1"]);
         ($mresult) && ($model=$mresult->{".1.3.6.1.2.1.25.3.2.1.3.1"});
@@ -806,7 +910,7 @@ sub check_paper_trays {
                 if ($name =~ m/TRAY/) {
                         if ($name =~ /(?<=TRAY)[0-9]/) {
                                 my @split = split(/(?<=\d)(?=\D)|(?<=\D)(?=\d)/, $name);
-                                        $name = @split[0]." ".@split[1];
+                                $name = @split[0]." ".@split[1];
                         }
                         $name = (ucfirst(lc($name)));
                 }
@@ -960,11 +1064,32 @@ sub retry_snmp {
         my ($sr1,$sr2,$sr3,$sr4,$sr5,$sr6,$sr7,$sr8) = @_;
 
         if ($sr8) {
-                return $snmp->get_entries(-columns => [$sr1,$sr2,$sr3,$sr4,$sr5,$sr6,$sr7,$sr8]);
+                if ($opt_contextname) {
+                        return $snmp->get_entries(
+                                -contextname   => $opt_contextname,
+                                -columns => [$sr1,$sr2,$sr3,$sr4,$sr5,$sr6,$sr7,$sr8],
+                                );
+                } else {
+                        return $snmp->get_entries(-columns => [$sr1,$sr2,$sr3,$sr4,$sr5,$sr6,$sr7,$sr8]);
+                }
         } elsif ($sr2) {
-                return $snmp->get_entries(-columns => [$sr1,$sr2,$sr3]);
+                if ($opt_contextname) {
+                        return $snmp->get_entries(
+                                -contextname   => $opt_contextname,
+                                -columns => [$sr1,$sr2,$sr3,$sr4,$sr5,$sr6,$sr7,$sr8],
+                                );
+                } else {
+                        return $snmp->get_entries(-columns => [$sr1,$sr2,$sr3]);
+                }
         } else {
-                return $snmp->get_request(-varbindlist => [$sr1]);
+                if ($opt_contextname) {
+                        return $snmp->get_entries(
+                                -contextname   => $opt_contextname,
+                                -varbindlist => [$sr1],
+                                );
+                } else {
+                        return $snmp->get_request(-varbindlist => [$sr1]);
+                }
         }
 }
 
@@ -976,13 +1101,36 @@ $SIG{ALRM} = sub {
 alarm($opt_timeout*$opt_retries);
 
 # connect to the snmp server
-($snmp, $errstr) = Net::SNMP->session(
-  -hostname  => $opt_host,
-  -version   => $opt_snmpver,
-  -community => $opt_community,
-  -timeout   => $opt_timeout,
-  -retries   => $opt_retries,
-);
+if (!$opt_authpass) { $opt_authpass = $opt_authkey; }
+if (!$opt_privpass) { $opt_privpass = $opt_privkey; }
+
+my %snmpargs = (-hostname     => $opt_host,
+                -version      => $opt_snmpver,
+                -timeout      => $opt_timeout,
+                -retries      => $opt_retries,);
+
+my %snmpv12 = (-community => $opt_community,);
+my %snmpv3 = (-username     => $opt_user,
+              -authpassword => $opt_authpass,
+              -authprotocol => $opt_authproto,
+              -privpassword => $opt_privpass,
+              -privprotocol => $opt_privproto,);
+
+my %snmpv3key = (-authkey     => $opt_authkey,
+                 -privkey     => $opt_privkey,);
+
+if ($opt_snmpver le 2) {
+        %snmpargs = (%snmpargs, %snmpv12);
+}
+if ($opt_snmpver eq 3) {
+        if ($opt_authkey or $opt_privkey) {
+                %snmpargs = (%snmpargs, %snmpv3, %snmpv3key);
+        } else {
+                %snmpargs = (%snmpargs, %snmpv3);
+        }
+}
+($snmp, $errstr) = Net::SNMP->session(%snmpargs);
+
 if (!$snmp) {
   print "Could not create SNMP session: $errstr\n";
   exit($ERRORS{'UNKNOWN'});
