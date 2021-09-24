@@ -85,6 +85,14 @@ Restart Icinga2:
 sudo systemctl restart icinga2
 ```
 
+## SNMPv3 AES Privacy Protocol Support
+
+You may need to install the Crypt::Rijndael Perl module to support AES for the Privacy Protocol:
+
+```
+sudo yum install perl-Crypt-Rijndael -y
+```
+
 ## Acknowledgments
 
 * Franky Van Liedekerke for porting Jason Leonard's initial BASH script to Perl.
