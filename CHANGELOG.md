@@ -1,3 +1,13 @@
+<a name="1.3.0"></a>
+# [1.3.0](https://github.com/Tylan/check_snmp_printer/compare/v1.2.3...v1.3.0) (2021-09-24)
+
+### Features
+
+* Added SNMPv3 support
+* Added --nofuser option to remove reporting on the Fuser
+
+### Other Fixes
+* Added support for more Kyocera toners
 <a name="1.2.3"></a>
 # [1.2.3](https://github.com/Tylan/check_snmp_printer/compare/v1.2.2...v1.2.3) (2020-10-14)
 
