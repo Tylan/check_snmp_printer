@@ -2,9 +2,12 @@
 #########################################################
 #                                                       #
 #                                                       #
-#      SNMP Printer Check Plugin for Icinga             #
-#        Version 1.3.0 (September 24, 2021)             #
-#                by Rob McLoughlin                      #
+#             SNMP Printer Check Plugin                 #
+#                        for                            #
+#                  Icinga / Nagios                      #
+#                                                       #
+#        Version 1.3.1 (September 26, 2022)             #
+#                by Bob McLoughlin                      #
 #         E-mail: rmcloughlin@outlook.com               #
 #                                                       #
 #                                                       #
@@ -32,12 +35,12 @@
 #                                                       #
 # DEPENDS On                                            #
 # Net::SNMP perl module                                 #
-# Nagios plugins installed and located in lib64         #
+# Nagios plugins installed                              #
 #                                                       #
 #########################################################
 
 use strict;
-use lib qw( /usr/lib/nagios/plugins /usr/lib64/nagios/plugins );
+use lib qw ( /usr/local/nagios/libexec /usr/lib/nagios/plugins /usr/lib64/nagios/plugins );
 use utils qw( %ERRORS $TIMEOUT &print_revision &support &usage );
 use Net::SNMP;
 use Getopt::Long;
@@ -52,7 +55,7 @@ use vars qw(
   $opt_messages $opt_model $opt_consum $opt_tray $opt_pagecount
   $opt_metric $opt_nofeeder $opt_nofuser $opt_user $opt_authpass
   $opt_authkey $opt_authproto $opt_privkey $opt_privpass
-  $opt_privproto $opt_contextname
+  $opt_privproto $opt_contextname $opt_lang
 );
 my (@consumables,@status,@trays,@strays,@percentages,@mresults,@message,@measurables);
 my ($state,$statuscode,$EXITSTRING);
@@ -63,32 +66,33 @@ my %STATUS_CODE =
 
 # config
 $PROGNAME    = $0;
-$VERSION     = '1.3.0';
+$VERSION     = '1.3.1';
 
 # init options
-$opt_version    = undef;
-$opt_help       = undef;
-$opt_timeout    = $TIMEOUT;
-$opt_retries    = 3;
-$opt_host       = undef;
-$opt_community  = 'public';
-$opt_snmpver    = 1;
-$opt_warning    = 20; # warning percentage: if lower: warning
-$opt_critical   = 5;  # critical percentage: if lower: critical
-$opt_messages   = undef;
-$opt_model      = undef;
-$opt_consum     = undef;
-$opt_tray       = undef;
-$opt_pagecount  = undef;
-$opt_metric     = undef;
-$opt_user       = undef;
-$opt_authpass   = undef;
-$opt_authproto  = undef;
-$opt_authkey    = undef;
-$opt_privpass   = undef;
-$opt_privproto  = undef;
-$opt_privkey    = undef;
+$opt_version     = undef;
+$opt_help        = undef;
+$opt_timeout     = $TIMEOUT;
+$opt_retries     = 3;
+$opt_host        = undef;
+$opt_community   = 'public';
+$opt_snmpver     = 1;
+$opt_warning     = 20; # warning percentage: if lower: warning
+$opt_critical    = 5;  # critical percentage: if lower: critical
+$opt_messages    = undef;
+$opt_model       = undef;
+$opt_consum      = undef;
+$opt_tray        = undef;
+$opt_pagecount   = undef;
+$opt_metric      = undef;
+$opt_user        = undef;
+$opt_authpass    = undef;
+$opt_authproto   = undef;
+$opt_authkey     = undef;
+$opt_privpass    = undef;
+$opt_privproto   = undef;
+$opt_privkey     = undef;
 $opt_contextname = undef;
+$opt_lang        = undef;
 
 # get options
 Getopt::Long::Configure('bundling');
@@ -117,26 +121,37 @@ GetOptions(
   'X|privpass=s'        => \$opt_privpass,
   'x|privproto=s'       => \$opt_privproto,
   'z|privkey=s'         => \$opt_privkey,
-  'n|contextname=s'     => \$opt_contextname
+  'n|contextname=s'     => \$opt_contextname,
+  'l|lang=s'            => \$opt_lang
 ) or do {
   print_usage();
   exit($ERRORS{'UNKNOWN'});
 };
 
-if($opt_version) {
+if ($opt_version) {
   print_version();
   exit($ERRORS{'UNKNOWN'});
 }
 
-if($opt_help) {
+if ($opt_help) {
   print_help();
   exit($ERRORS{'UNKNOWN'});
 }
 
-if(!$opt_host) {
+if (!$opt_host) {
   print "Host option not given\n";
   print_usage();
   exit($ERRORS{'UNKNOWN'});
+}
+
+if ($opt_lang) {
+        if ($opt_lang =~ m/English|english/) {
+                $opt_lang = lc ($opt_lang);
+        } else {
+                print "Translation to $opt_lang not supported at this time.\n";
+                print "Available languages: English\n";
+                exit($ERRORS{'UNKNOWN'});
+        }
 }
 
 # only use one of messages|model|consum|tray|pagecount options
@@ -161,10 +176,9 @@ sub print_usage {
   my $tab = ' ' x length($PROGNAME);
   print <<EOB
 Usage:
- $PROGNAME -H host
- $tab [-C snmp_community] [-v snmp_version] [-t timeout]
- $PROGNAME --version
- $PROGNAME --help
+ check_snmp_printer -H host [-C snmp_community] [-v snmp_version] [-t timeout]
+ check_snmp_printer --version
+ check_snmp_printer --help
 EOB
 }
 
@@ -453,9 +467,9 @@ sub get_consumables {
 
         foreach my $key (keys(%tmpprs)) {
                 my $name=$tmpprs{$key}{name};
-                if ($name =~ m/Imaging Unit|Imaging Kit/) { $consumable = $name; }
+                if ($name =~ m/Imaging Unit|Imaging Kit|Patrone/) { $consumable = $name; }
                 else { ($consumable = $name) =~ s/(\w+).*/$1/; }
-                if (($consumable =~ m/Fuser/ and $opt_nofuser)) { next; }
+                if (($consumable =~ m/Fuser|Fixiererkit/ and $opt_nofuser)) { next; }
                 if ($consumable eq "Canon") {
                         my @split = split(' ',$consumable = $name);
                         foreach my $cconsumable (@split) {
@@ -496,11 +510,39 @@ sub get_consumables {
                 my $curcap=$tmpprs{$key}{curcap};
                 my $maxcap=$tmpprs{$key}{maxcap};
 
-                if ($name =~ m/Drum|Resttoner|Waste Toner|Belt|Developer|200K|300K|Developer|Photoconductor|Staples G/) {
+                if ($name =~ m/Drum|Resttoner|Waste Toner|Belt|Developer|200K|300K|Developer|Photoconductor|Staples G|Trommel/) {
                         next;
                 }
 
-                if ($consumable =~ m/Imaging Unit/) { }
+                if ($consumable =~ m/Imaging Unit|Vorlageneinzugskit/) { }
+                elsif ($consumable =~ m/Patrone/) { # German 
+                        if ($opt_lang = 'english') {
+                                if ($consumable =~ m/Schwarz/) { $consumable = "Black Toner"; }
+                                if ($consumable =~ m/Gelb/) { $consumable = "Yellow Toner"; }
+                                if ($consumable =~ m/Magenta/) { $consumable = "Magenta Toner"; }
+                                if ($consumable =~ m/Cyan/) { $consumable = "Cyan Toner"; }
+                        } else {
+                                if ($consumable =~ m/Schwarz/) { $consumable = "Patrone Schwarz"; }
+                                if ($consumable =~ m/Gelb/) { $consumable = "Patrone Gelb"; }
+                                if ($consumable =~ m/Magenta/) { $consumable = "Patrone Magenta"; }
+                                if ($consumable =~ m/Cyan/) { $consumable = "Patrone Cyan"; }
+                        }
+                }
+                elsif ($consumable =~ m/Fixiererkit/) {
+                        if ($opt_lang = 'english') { $consumable = "Fuser Kit"; } else { $consumable = "Fixiererkit"; }
+                }
+                elsif ($consumable =~ m/Wazlen/) {
+                        if ($opt_lang = 'english') { $consumable = "Clean Rollers"; } else { $consumable = "Walzen reinigen"; }
+                }
+                elsif ($consumable =~ m/Tonerauffangeinheit/) {
+                        if ($opt_lang = 'english') { $consumable = "Toner Collection Kit"; } else { $consumable = "Tonerauffangeinheit"; }
+                }
+                elsif ($consumable =~ m/Hefter/) {
+                        if ($opt_lang = 'english') { $consumable = "Stapler"; } else { $consumable = "Hefter"; }
+                }
+                elsif ($consumable =~ m/Transferkit/) {
+                        if ($opt_lang = 'english') { $consumable = "Transfer Kit"; } else { $consumable = "Transferkit"; }
+                }
                 elsif ($consumable =~ m/Black|Yellow|Magenta|Cyan/) { $consumable = $consumable." Toner"; }
                 elsif ($consumable =~ m/Schwarz|Gelb/) { $consumable = $consumable." Toner"; } # German
                 # Kyocera reports toner as model number so we need to convert that to something human readable
@@ -1107,7 +1149,8 @@ if (!$opt_privpass) { $opt_privpass = $opt_privkey; }
 my %snmpargs = (-hostname     => $opt_host,
                 -version      => $opt_snmpver,
                 -timeout      => $opt_timeout,
-                -retries      => $opt_retries,);
+                -retries      => $opt_retries,
+                -translate    => [-octetstring => 0],);
 
 my %snmpv12 = (-community => $opt_community,);
 my %snmpv3 = (-username     => $opt_user,
