@@ -467,7 +467,7 @@ sub get_consumables {
 
         foreach my $key (keys(%tmpprs)) {
                 my $name=$tmpprs{$key}{name};
-                if ($name =~ m/Imaging Unit|Imaging Kit|Patrone/) { $consumable = $name; }
+                if ($name =~ m/Imaging Unit|Imaging Kit|Patrone|Cartouche|Unité|Courroie|Kit d/) { $consumable = $name; }
                 else { ($consumable = $name) =~ s/(\w+).*/$1/; }
                 if (($consumable =~ m/Fuser|Fixiererkit/ and $opt_nofuser)) { next; }
                 if ($consumable eq "Canon") {
@@ -510,11 +510,48 @@ sub get_consumables {
                 my $curcap=$tmpprs{$key}{curcap};
                 my $maxcap=$tmpprs{$key}{maxcap};
 
-                if ($name =~ m/Drum|Resttoner|Waste Toner|Belt|Developer|200K|300K|Developer|Photoconductor|Staples G|Trommel/) {
+                if ($name =~ m/Drum|Resttoner|Waste Toner|Belt|Developer|200K|300K|Photoconductor|Staples G|Trommel|Tambour|dév|récupération/) {
                         next;
                 }
+                if ($opt_lang = 'english') {
+                        if ($consumable =~ m/noir|Noir/) { $consumable = "Black"; }
+                        if ($consumable =~ m/jaune|Jaune/) { $consumable = "Yellow"; }
+                        if ($consumable =~ m/Courroie de transfert/) { $consumable = "Transfer Belt"; }
+                        if ($consumable =~ m/Rouleaux|Wazlen/) { $consumable = "Clean Rollers"; }
+                        if ($consumable =~ m/Rouleau d|/) { $consumable = "Pickup Rollers"; }
+                        if ($consumable =~ m/Rouleau s|/) { $consumable = "Separation Roller"; }
+                        if ($consumable =~ m/Kit du rouleau du bac/) {
+                                $consumable = "Bin Roller Kit";
+                                $consumable .= $consumable =~ /(?<=Kit du rouleau du bac )(\w+)/;
+                        }
+                        if ($consumable =~ m/Fixiererkit|Kit de fusion/) { $consumable = "Fuser Kit"; }
+                        if ($consumable =~ m/Tonerauffangeinheit/) { $consumable = "Toner Collection Kit"; }
+                        if ($consumable =~ m/Hefter/) { $consumable = "Stapler"; }
+                        if ($consumable =~ m/Transferkit/) { $consumable = "Transfer Kit"; }
+                }
+                # German
+                if ($consumable =~ m/Fixiererkit/) { $consumable = "Fixiererkit"; }
+                if ($consumable =~ m/Wazlen/) { $consumable = "Walzen reinigen"; }
+                if ($consumable =~ m/Tonerauffangeinheit/) { $consumable = "Tonerauffangeinheit"; }
+                if ($consumable =~ m/Hefter/) { $consumable = "Hefter"; }
+                if ($consumable =~ m/Transferkit/) { $consumable = "Transferkit"; }
+                # French
+                if ($consumable =~ m/noir|Noir/) { $consumable = "Toner Noir"; }
+                if ($consumable =~ m/jaune|Jaune/) { $consumable = "Toner Juane"; }
+                if ($consumable =~ m/Courroie de transfert/) { $consumable = "Courroie de transfert"; } 
+                if ($consumable =~ m/Rouleaux/) { $consumable = "Rouleaux de transfert"; }
+                if ($consumable =~ m/Rouleau d|/) { $consumable = "Rouleau d'entraînement"; }
+                if ($consumable =~ m/Rouleau s|/) { $consumable = "Rouleau séparation"; }
+                if ($consumable =~ m/Kit de fusion/) { $consumable = "Kit de fusion"; }
+                if ($consumable =~ m/Kit du rouleau du bac/)  {
+                        $consumable = "Kit du rouleau du bac";
+                        $consumable .= $consumable =~ /(?<=Kit du rouleau du bac )(\w+)/;
+                }
+ 
+                if ($name =~ m/Toner cyan|Toner Cyan/) { $consumable = "Toner Cyan"; }
+                if ($name =~ m/Toner magenta|Toner Magenta/) { $consumable = "Toner Magenta"; }
 
-                if ($consumable =~ m/Imaging Unit|Vorlageneinzugskit/) { }
+                if ($consumable =~ m/Imaging Unit|Vorlageneinzugskit|nettoyage/) { }
                 elsif ($consumable =~ m/Patrone/) { # German 
                         if ($opt_lang = 'english') {
                                 if ($consumable =~ m/Schwarz/) { $consumable = "Black Toner"; }
@@ -528,23 +565,15 @@ sub get_consumables {
                                 if ($consumable =~ m/Cyan/) { $consumable = "Patrone Cyan"; }
                         }
                 }
-                elsif ($consumable =~ m/Fixiererkit/) {
-                        if ($opt_lang = 'english') { $consumable = "Fuser Kit"; } else { $consumable = "Fixiererkit"; }
-                }
-                elsif ($consumable =~ m/Wazlen/) {
-                        if ($opt_lang = 'english') { $consumable = "Clean Rollers"; } else { $consumable = "Walzen reinigen"; }
-                }
-                elsif ($consumable =~ m/Tonerauffangeinheit/) {
-                        if ($opt_lang = 'english') { $consumable = "Toner Collection Kit"; } else { $consumable = "Tonerauffangeinheit"; }
-                }
-                elsif ($consumable =~ m/Hefter/) {
-                        if ($opt_lang = 'english') { $consumable = "Stapler"; } else { $consumable = "Hefter"; }
-                }
-                elsif ($consumable =~ m/Transferkit/) {
-                        if ($opt_lang = 'english') { $consumable = "Transfer Kit"; } else { $consumable = "Transferkit"; }
-                }
                 elsif ($consumable =~ m/Black|Yellow|Magenta|Cyan/) { $consumable = $consumable." Toner"; }
-                elsif ($consumable =~ m/Schwarz|Gelb/) { $consumable = $consumable." Toner"; } # German
+                elsif ($consumable =~ m/Schwarz|Gelb/) {
+                        if ($opt_lang = 'english') {
+                                # German
+                                if ($consumable =~ m/Schwarz/) { $consumable = "Black"; }
+                                if ($consumable =~ m/Gelb/) { $consumable = "Yellow"; }
+                        }
+                        $consumable = $consumable." Toner";
+                }
                 # Kyocera reports toner as model number so we need to convert that to something human readable
                 if ($consumable =~ m/TK|CK/) {
                         if ($consumable =~ /CS$|C$/) { $consumable = "Cyan Toner"; }
@@ -1001,7 +1030,6 @@ sub check_paper_trays {
                                 }
                         }
                 }
-
                 if ($cap == -3) {
                         # The value (-3) means that the printer knows that at least one unit remains.
                         if ($model =~ m/lexmark/) { # When -3, Lexmark is really low status.
@@ -1044,32 +1072,35 @@ sub check_paper_trays {
                                 $state = "WARNING";
                                 $traymessage = " is in UNKNOWN status.";
                         }
+                        if ($opt_warning == 0) { $state = "OK"; }
                 } elsif ($cap == 0) {
                         # 0 means there is no paper left! This is our only critical value.
                         # first lets check to see if it's a bypass tray, we'll always assume Tray 1 is such.
                         if ($lcname =~ m/tray 1|stack bypass|mp tray|manual paper|manual envelope|multi-purpose_tray/) {
+                                $state = "CRITICAL";
+                                if (($xfeeddim || $feeddim) ne 'Any') {
+                                        $traymessage = " ($xfeeddim x $feeddim)";
+                                } else { $traymessage = " is empty."; }
+                        } else {
+                                if ($opt_critical > 0) {
                                         $state = "CRITICAL";
-                                        if (($xfeeddim || $feeddim) ne 'Any') {
-                                                $traymessage = " ($xfeeddim x $feeddim)";
-                                        } else { $traymessage = " is empty."; }
                                 } else {
-                                        if ($opt_critical > 0) {
-                                                $state = "CRITICAL";
-                                        } else {
-                                                $state = "OK";
-                                        }
-                                        $traymessage = " ($xfeeddim x $feeddim) is at 0% paper remaining.";
+                                        $state = "OK";
                                 }
+                                $traymessage = " ($xfeeddim x $feeddim) is at 0% paper remaining.";
+                        }
                         $cap_pct=sprintf("%.2f",$cap*100/$maxcap);
+                        if ($opt_critical == 0) { $state = "OK"; }
                 } else {
                         ($maxcap==0) && ($maxcap=1);
-                        $cap_pct=sprintf("%.2f",$cap*100/$maxcap);
-                        if (($cap_pct <= $opt_warning) and ($opt_warning > 0 )) {
-                                $state = "WARNING";
-                        } else {
-                                $state = "OK";
-                        }
+                                $cap_pct=sprintf("%.2f",$cap*100/$maxcap);
+                                if (($cap_pct <= $opt_warning) and ($opt_warning > 0 )) {
+                                        $state = "WARNING";
+                                } else {
+                                        $state = "OK";
+                                }
                         $traymessage = " ($xfeeddim x $feeddim) is at $cap_pct% paper remaining.";
+                        if ($opt_warning == 0 ) { $state = "OK"; }
                 }
                 push @{ $status[$traynumber] }, $state, $cap_pct;
                 push (@message, $traymessage);
