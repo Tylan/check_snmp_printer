@@ -1,3 +1,14 @@
+<a name="1.3.1"></a>
+# [1.3.0](https://github.com/Tylan/check_snmp_printer/compare/v1.3.0...v1.3.1) (2022-09-27)
+
+### Features
+
+* Added support for printers that have German or French text in their OID output
+
+### Bug Fixes
+* Added decoding of hex SNMP results. (Issue #26)
+* Fixed issue with disabling criticals and/or warnings for tray status. (Issue #18)
+
 <a name="1.3.0"></a>
 # [1.3.0](https://github.com/Tylan/check_snmp_printer/compare/v1.2.3...v1.3.0) (2021-09-24)
 
