@@ -312,12 +312,18 @@ sub check_messages {
         @mresults = sort { $a->[0] cmp $b->[0] } @mresults;
         $mcount = (scalar @mresults);
         while ($mcount > 0) {
-                $MESSAGES .= "$mresults[$k][1] ";
+                if ($mresults[$k][1] ne "") {
+                        $MESSAGES .= "$mresults[$k][1]";
+                        if ($mcount > 1) {
+                                $MESSAGES .= " / ";
+                        }
+                }
                 $mcount--;
                 $k++;
         }
 
         chomp $MESSAGES;
+        if ((substr $MESSAGES, -3) eq " / ") { $MESSAGES =~ s/.{3}$//; }
 
         if ($MESSAGES eq "") {
                 $MESSAGES= "(Can't determine messages)";
