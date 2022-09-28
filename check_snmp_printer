@@ -522,7 +522,7 @@ sub get_consumables {
                         if ($consumable =~ m/Rouleau s/) { $consumable = "Separation Roller"; }
                         if ($consumable =~ m/Kit du rouleau du bac/) {
                                 ($inum) = $name =~ /(?<=Kit du rouleau du bac )(\d+)/;
-                                $consumable = "Bin Roller Kit $inum";
+                                $consumable = "Bin Roller Kit" . " $inum";
                         }
                         if ($consumable =~ m/Fixiererkit|Kit de fusion/) { $consumable = "Fuser Kit"; }
                         if ($consumable =~ m/Tonerauffangeinheit/) { $consumable = "Toner Collection Kit"; }
@@ -545,7 +545,7 @@ sub get_consumables {
                 if ($consumable =~ m/Kit de fusion/) { $consumable = "Kit de fusion"; }
                 if ($consumable =~ m/Kit du rouleau du bac/)  {
                         ($inum) = $name =~ /(?<=Kit du rouleau du bac )(\d+)/;
-                        $consumable = "Kit du rouleau du bac $inum";
+                        $consumable = "Kit du rouleau du bac" . " $inum";
                 }
 
                 if ($consumable =~ m/Imaging Unit|Vorlageneinzugskit|nettoyage/) { }
