@@ -332,7 +332,7 @@ sub check_messages {
         my @messages = split('\n',$MESSAGES);
         foreach my $message (@messages) {
                 $message = lc $message;
-                if ($message =~ m/toner low|wenig toner|cartridge low|niedrig|attention/) {
+                if ($message =~ m/toner low|wenig toner|cartridge low|niedrig|attention|reorder/) {
                         $state = "WARNING";
                 }
                 elsif ($message =~ m/replace toner|toner ersetzen|error|paper is out/) {
