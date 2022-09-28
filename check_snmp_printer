@@ -288,8 +288,10 @@ sub check_model {
 
 sub check_messages {
         my ($mcheck) = @_;
-        my ($oid,$result,$model);
-        my $MESSAGES="";
+        my ($oid,$result,$model,$mcount);
+        my @mresults;
+        my $k = 0;
+        my $MESSAGES = "";
 
         $model = check_model(2);
         if ($model =~ m/hp/) {
@@ -303,9 +305,20 @@ sub check_messages {
         foreach my $key (keys(%$result)) {
                 $result->{$key} =~ s/\"//g;
                 $result->{$key} =~ s/\n/\!/g;
-                $MESSAGES .= $result->{$key}."\n";
+                push @{ $mresults[$k] }, $key, $result->{$key};
+                $k++;
         }
+        $k = 0;
+        @mresults = sort { $a->[0] cmp $b->[0] } @mresults;
+        $mcount = (scalar @mresults);
+        while ($mcount > 0) {
+                $MESSAGES .= "$mresults[$k][1] ";
+                $mcount--;
+                $k++;
+        }
+
         chomp $MESSAGES;
+
         if ($MESSAGES eq "") {
                 $MESSAGES= "(Can't determine messages)";
         }
