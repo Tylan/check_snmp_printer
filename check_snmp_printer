@@ -452,7 +452,7 @@ sub check_page_count {
 sub get_consumables {
         my ($result,$Table,$Names,$CurCap,$MaxCap) = @_;
         my %tmpprs = ();
-        my ($consumable, $curcap_pct);
+        my ($consumable, $curcap_pct, $inum);
         my ($puncher, $found) = 0;
 
         foreach my $key (keys(%$result)) {
@@ -513,16 +513,16 @@ sub get_consumables {
                 if ($name =~ m/Drum|Resttoner|Waste Toner|Belt|Developer|200K|300K|Photoconductor|Staples G|Trommel|Tambour|dév|récupération/) {
                         next;
                 }
-                if ($opt_lang = 'english') {
+                if ($opt_lang eq 'english') {
                         if ($consumable =~ m/noir|Noir/) { $consumable = "Black"; }
                         if ($consumable =~ m/jaune|Jaune/) { $consumable = "Yellow"; }
                         if ($consumable =~ m/Courroie de transfert/) { $consumable = "Transfer Belt"; }
                         if ($consumable =~ m/Rouleaux|Wazlen/) { $consumable = "Clean Rollers"; }
-                        if ($consumable =~ m/Rouleau d|/) { $consumable = "Pickup Rollers"; }
-                        if ($consumable =~ m/Rouleau s|/) { $consumable = "Separation Roller"; }
+                        if ($consumable =~ m/Rouleau d/) { $consumable = "Pickup Rollers"; }
+                        if ($consumable =~ m/Rouleau s/) { $consumable = "Separation Roller"; }
                         if ($consumable =~ m/Kit du rouleau du bac/) {
-                                $consumable = "Bin Roller Kit ";
-                                $consumable .= $consumable =~ /(?<=Kit du rouleau du bac )(\w+)/;
+                                ($inum) = $name =~ /(?<=Kit du rouleau du bac )(\d+)/;
+                                $consumable = "Bin Roller Kit $inum";
                         }
                         if ($consumable =~ m/Fixiererkit|Kit de fusion/) { $consumable = "Fuser Kit"; }
                         if ($consumable =~ m/Tonerauffangeinheit/) { $consumable = "Toner Collection Kit"; }
@@ -540,17 +540,17 @@ sub get_consumables {
                 if ($consumable =~ m/jaune|Jaune/) { $consumable = "Toner Juane"; }
                 if ($consumable =~ m/Courroie de transfert/) { $consumable = "Courroie de transfert"; } 
                 if ($consumable =~ m/Rouleaux/) { $consumable = "Rouleaux de transfert"; }
-                if ($consumable =~ m/Rouleau d|/) { $consumable = "Rouleau d'entraînement"; }
-                if ($consumable =~ m/Rouleau s|/) { $consumable = "Rouleau séparation"; }
+                if ($consumable =~ m/Rouleau d/) { $consumable = "Rouleau d'entraînement"; }
+                if ($consumable =~ m/Rouleau s/) { $consumable = "Rouleau séparation"; }
                 if ($consumable =~ m/Kit de fusion/) { $consumable = "Kit de fusion"; }
                 if ($consumable =~ m/Kit du rouleau du bac/)  {
-                        $consumable = "Kit du rouleau du bac ";
-                        $consumable .= $consumable =~ /(?<=Kit du rouleau du bac )(\w+)/;
+                        ($inum) = $name =~ /(?<=Kit du rouleau du bac )(\d+)/;
+                        $consumable = "Kit du rouleau du bac $inum";
                 }
 
                 if ($consumable =~ m/Imaging Unit|Vorlageneinzugskit|nettoyage/) { }
                 elsif ($consumable =~ m/Patrone/) { # German 
-                        if ($opt_lang = 'english') {
+                        if ($opt_lang eq 'english') {
                                 if ($consumable =~ m/Schwarz/) { $consumable = "Black Toner"; }
                                 if ($consumable =~ m/Gelb/) { $consumable = "Yellow Toner"; }
                                 if ($consumable =~ m/Magenta/) { $consumable = "Magenta Toner"; }
