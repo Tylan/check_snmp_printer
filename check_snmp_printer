@@ -521,7 +521,7 @@ sub get_consumables {
                         if ($consumable =~ m/Rouleau d|/) { $consumable = "Pickup Rollers"; }
                         if ($consumable =~ m/Rouleau s|/) { $consumable = "Separation Roller"; }
                         if ($consumable =~ m/Kit du rouleau du bac/) {
-                                $consumable = "Bin Roller Kit";
+                                $consumable = "Bin Roller Kit ";
                                 $consumable .= $consumable =~ /(?<=Kit du rouleau du bac )(\w+)/;
                         }
                         if ($consumable =~ m/Fixiererkit|Kit de fusion/) { $consumable = "Fuser Kit"; }
@@ -544,12 +544,9 @@ sub get_consumables {
                 if ($consumable =~ m/Rouleau s|/) { $consumable = "Rouleau séparation"; }
                 if ($consumable =~ m/Kit de fusion/) { $consumable = "Kit de fusion"; }
                 if ($consumable =~ m/Kit du rouleau du bac/)  {
-                        $consumable = "Kit du rouleau du bac";
+                        $consumable = "Kit du rouleau du bac ";
                         $consumable .= $consumable =~ /(?<=Kit du rouleau du bac )(\w+)/;
                 }
- 
-                if ($name =~ m/Toner cyan|Toner Cyan/) { $consumable = "Toner Cyan"; }
-                if ($name =~ m/Toner magenta|Toner Magenta/) { $consumable = "Toner Magenta"; }
 
                 if ($consumable =~ m/Imaging Unit|Vorlageneinzugskit|nettoyage/) { }
                 elsif ($consumable =~ m/Patrone/) { # German 
@@ -590,6 +587,8 @@ sub get_consumables {
                         elsif ($consumable =~ /0A$/) { $consumable = "Black Toner"; }
                         else { $consumable = "Black Toner"; }
                 }
+                if ($name =~ m/Toner cyan|Toner Cyan/) { $consumable = "Toner Cyan"; }
+                if ($name =~ m/Toner magenta|Toner Magenta/) { $consumable = "Toner Magenta"; }
                 if ($consumable eq 'Magneta') { $consumable = "Magenta Toner"; }  # New HP OID has a typo
                 if ($consumable eq 'Clean') { $consumable = $consumable." Rollers"; }
                 if ($consumable eq 'Document') { $consumable = $consumable." Feeder Kit"; }
