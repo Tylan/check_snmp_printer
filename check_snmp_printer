@@ -6,7 +6,7 @@
 #                        for                            #
 #                  Icinga / Nagios                      #
 #                                                       #
-#        Version 1.3.1 (September 26, 2022)             #
+#          Version 1.3.2 (March 07, 2023)               #
 #                by Bob McLoughlin                      #
 #         E-mail: rmcloughlin@outlook.com               #
 #                                                       #
@@ -66,7 +66,7 @@ my %STATUS_CODE =
 
 # config
 $PROGNAME    = $0;
-$VERSION     = '1.3.1';
+$VERSION     = '1.3.2';
 
 # init options
 $opt_version     = undef;
@@ -963,7 +963,7 @@ sub check_paper_trays {
         }
 
         if(not defined($result)) {
-                print "CRITICAL - snmp error: " . $snmp->error() . "\n";
+                print "CRITICAL - snmp error: "  . $snmp->error() . "\n";
                 exit($ERRORS{'CRITICAL'});
         }
         foreach my $key (keys(%$result)) {
@@ -975,6 +975,12 @@ sub check_paper_trays {
                 if($base eq $tray_oids{Name}) { $tmpprs{$index}{name} = $result->{$key}; }
                 if($base eq $tray_oids{FeedDim}) { $tmpprs{$index}{feeddim} = $result->{$key}; }
                 if($base eq $tray_oids{XFeedDim}) { $tmpprs{$index}{xfeeddim} = $result->{$key}; }
+        }
+
+        if ($opt_nofeeder) {
+                foreach my $key (keys(%tmpprs)) {
+                        if (lc($tmpprs{$key}{name}) =~ m/bypass|mp tray|manual paper|manual envelope|multi-purpose_tray/) { $feeder=1; }
+                }
         }
 
         foreach my $key (keys(%tmpprs)) {
@@ -1004,8 +1010,10 @@ sub check_paper_trays {
                         $name = (ucfirst(lc($name)));
                 }
                 $lcname = lc($name);
-                if (($lcname =~ m/stack bypass|mp tray|manual paper|manual envelope|multi-purpose_tray/) and ($opt_nofeeder)) { $feeder=1; next; }
-                if (($lcname =~ m/tray 1/) and ($opt_nofeeder) and (scalar(keys(%tmpprs) > 1)) and $feeder != 1) { next; }
+                if ($opt_nofeeder) {
+                        if (($lcname =~ m/tray 1/) and (scalar(keys(%tmpprs) > 1)) and (!$feeder)) { next; }
+                        elsif ($lcname =~ m/bypass|mp tray|manual paper|manual envelope|multi-purpose_tray/) { next; }
+                }
                 $found=1;
                 push @{ $trays[$traynumber] }, $name, $cap, $maxcap, $feeddim, $xfeeddim, $tstatus;
                 $traynumber++;
