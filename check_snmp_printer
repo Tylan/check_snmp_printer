@@ -146,11 +146,11 @@ if (!$opt_host) {
 
 if ($opt_lang) {
     if ($opt_lang =~ m/English|english/) {
-            $opt_lang = lc ($opt_lang);
+        $opt_lang = lc ($opt_lang);
     } else {
-            print "Translation to $opt_lang not supported at this time.\n";
-            print "Available languages: English\n";
-            exit($ERRORS{'UNKNOWN'});
+        print "Translation to $opt_lang not supported at this time.\n";
+        print "Available languages: English\n";
+        exit($ERRORS{'UNKNOWN'});
     }
 }
 
@@ -494,10 +494,11 @@ sub get_consumables {
 
         my $curcap=$tmpprs{$key}{curcap};
         my $maxcap=$tmpprs{$key}{maxcap};
-
         if ($name =~ m/Drum|Resttoner|Waste Toner|Belt|Developer|200K|300K|Photoconductor|Staples G|Trommel|Tambour|dév|récupération/) {
             next;
         }
+        if ($name =~ m/Main Staple/) { $consumable = "Staples"; }
+        if ($name =~ m/Transfer Roll/) { $consumable = "Transfer"; }
         if ($opt_lang eq 'english') {
             if ($consumable =~ m/noir|Noir/) { $consumable = "Black"; }
             if ($consumable =~ m/jaune|Jaune/) { $consumable = "Yellow"; }
@@ -585,7 +586,6 @@ sub get_consumables {
         if ($consumable eq 'Saddle') { $consumable = $consumable." Staples"; }
         if ($consumable eq 'Hole') { $puncher = 1; $consumable = $consumable. " Punch Box"; }
         if ($consumable eq 'Puncher') { $puncher = 1; $consumable = $consumable. " Waste"; }
-
         push (@consumables, $consumable);
 
         $found=1;
@@ -941,9 +941,7 @@ sub check_paper_trays {
         }
     }
     $result = \%hresults;
-
     my $model = check_model(2);
-
     foreach my $key (keys(%$result)) {
         my($base, $index) = ($key =~ /($tray_oids{Table}\.\d+\.\d+)\.(\d+)/);
         $result->{$key} =~ s/\"//g;
@@ -1159,11 +1157,11 @@ my %snmpargs = (DestHost      => $opt_host,
                 RemotePort    => 161,
                 Timeout       => $stimeout,
                 Retries       => $opt_retries,
+                UseNumeric    => '1',
 );
 
 #snmp v1 and v2c specific arguments
-my %snmpv12 = ( Community  => $opt_community, 
-                UseNumeric => '1', );
+my %snmpv12 = ( Community  => $opt_community,);
 
 #snmpv3 arguments
 #base
@@ -1207,7 +1205,6 @@ if ( $opt_snmpver le 2 ) {
     stop( "$state: It appears you are missing one or more parameters necessary for v$opt_snmpver to function.\n",$state );
 }
 $snmp = new SNMP::Session( %snmpargs );
-
 if ($opt_messages) {check_messages();}
 if ($opt_model) {check_model(1); exit($ERRORS{'OK'});}
 if ($opt_pagecount) {check_page_count();}
