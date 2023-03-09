@@ -287,7 +287,7 @@ sub check_messages {
     my @result = $snmp->bulkwalk(0, 10000, $oid);
     for my $key (@result) {
         for my $v (@$key) {
-               push @{ $mresults[$k] }, $v->[0], $v->[2];
+            push @{ $mresults[$k] }, $v->[0], $v->[2];
         }
         $k++;
     }
