@@ -260,7 +260,6 @@ sub check_model {
         $oid="1.3.6.1.2.1.25.3.2.1.3.1";
         $MODEL=$snmp->get([$oid]);
         if ($snmp->{ErrorStr}) { stop("CRITICAL - $snmp->{ErrorStr}", 'CRITICAL'); }
-        print "HI\n";
         if ($pcheck == 2) { return lc $MODEL; }
     }
     if ($pcheck == 1) {
