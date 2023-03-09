@@ -1,3 +1,14 @@
+<a name="2.0.0"></a>
+# [2.0.0](https://github.com/Tylan/check_snmp_printer/compare/v1.3.1...v2.0.0) (2023-03-09)
+
+### Features
+
+* Revamped SNMP code to now use Net-SNMP vs Net::SNMP due to limitations and quirkiness of Net::SNMP
+* Updated printers.conf
+
+### Bug Fixes
+* Fixed issue where sometimes --nofeeder wasn't removing the correct tray (Issue #30)
+
 <a name="1.3.1"></a>
 # [1.3.1](https://github.com/Tylan/check_snmp_printer/compare/v1.3.0...v1.3.1) (2022-09-27)
 

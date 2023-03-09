@@ -34,7 +34,7 @@
 #########################################################
 #                                                       #
 # DEPENDS On                                            #
-# Net::SNMP perl module                                 #
+# SNMP installed (http://www.net-snmp.org/              #
 # Nagios plugins installed                              #
 #                                                       #
 #########################################################
@@ -42,7 +42,7 @@
 use strict;
 use lib qw ( /usr/local/nagios/libexec /usr/lib/nagios/plugins /usr/lib64/nagios/plugins );
 use utils qw( %ERRORS $TIMEOUT &print_revision &support &usage );
-use Net::SNMP;
+use SNMP;
 use Getopt::Long;
 use Data::Dumper;
 
@@ -66,7 +66,7 @@ my %STATUS_CODE =
 
 # config
 $PROGNAME    = $0;
-$VERSION     = '1.3.2';
+$VERSION     = '2.0.0';
 
 # init options
 $opt_version     = undef;
@@ -253,33 +253,18 @@ EOB
 
 sub check_model {
         my ($pcheck) = @_;
-        my ($oid,$result);
-        my $MODEL="Uknown model";
+        my $oid;
+        my $MODEL="Unknown model";
         my $SERIAL="";
         if ($pcheck == 1 || $pcheck == 2) {
-                $oid=".1.3.6.1.2.1.25.3.2.1.3.1";
-                if ($opt_contextname) {
-                        $result=$snmp->get_request(
-                                        -contextname    => $opt_contextname,
-                                        -varbindlist    => [$oid]
-                                        );
-                } else {
-                        $result=$snmp->get_request(-varbindlist => [$oid]);
-                }
-                ($result) && ($MODEL=$result->{$oid});
+                $oid="1.3.6.1.2.1.25.3.2.1.3.1";
+                $MODEL=$snmp->get([$oid]);
+                print $snmp->{ErrorStr};
                 if ($pcheck == 2) { return lc $MODEL; }
         }
         if ($pcheck == 1) {
                 $oid=".1.3.6.1.2.1.43.5.1.1.17.1";
-                if ($opt_contextname) {
-                        $result=$snmp->get_request(
-                                        -contextname    => $opt_contextname,
-                                        -varbindlist    => [$oid]
-                                        );
-                } else {
-                        $result=$snmp->get_request(-varbindlist => [$oid]);
-                }
-                ($result) && ($SERIAL=$result->{$oid});
+                $SERIAL=$snmp->get([$oid]);
                 $SERIAL =~ s/\"//g;
 
                 print "$MODEL, Serial # $SERIAL\n";
@@ -300,12 +285,11 @@ sub check_messages {
                 $oid=".1.3.6.1.2.1.43.16";
         }
 
-        $result = $snmp->get_entries(-columns => [$oid]);
-
-        foreach my $key (keys(%$result)) {
-                $result->{$key} =~ s/\"//g;
-                $result->{$key} =~ s/\n/\!/g;
-                push @{ $mresults[$k] }, $key, $result->{$key};
+        my @result = $snmp->bulkwalk(0, 10000, $oid);
+        for my $key (@result) {
+                for my $v (@$key) {
+                       push @{ $mresults[$k] }, $v->[0], $v->[2];
+                }
                 $k++;
         }
         $k = 0;
@@ -384,67 +368,50 @@ sub check_page_count {
 
         $oid=".1.3.6.1.2.1.43.10.2.1.4.1.1";
 
-
-        if (defined($snmp->get_request(-varbindlist => [$m_a3_oid]))) { $m_a3 = $snmp->get_request(-varbindlist => [$m_a3_oid]) }
-        if (defined($snmp->get_request(-varbindlist => [$m_a4_oid]))) { $m_a4 = $snmp->get_request(-varbindlist => [$m_a4_oid]) }
-        if (defined($snmp->get_request(-varbindlist => [$c_a3_oid]))) { $c_a3 = $snmp->get_request(-varbindlist => [$c_a3_oid]) }
-        if (defined($snmp->get_request(-varbindlist => [$c_a4_oid]))) { $c_a4 = $snmp->get_request(-varbindlist => [$c_a4_oid]) }
-
+        if (defined($snmp->get([$m_a3_oid]))) { $m_a3 = $snmp->get([$m_a3_oid]) }
+        if (defined($snmp->get([$m_a4_oid]))) { $m_a4 = $snmp->get([$m_a4_oid]) }
+        if (defined($snmp->get([$c_a3_oid]))) { $c_a3 = $snmp->get([$c_a3_oid]) }
+        if (defined($snmp->get([$c_a4_oid]))) { $c_a4 = $snmp->get([$c_a4_oid]) }
         if (($m_a3 || $m_a4) > 0) {
                 $MonoPagecount = $m_a3 + $m_a4;
         } elsif ($model =~ m/kyocera|ecosys|taskalfa|4200dn/) {
-                my $tresult = $snmp->get_entries(-columns => [$t_oid]);
-                my $cresult = $snmp->get_entries(-columns => [$c_oid]);
-                my $mresult = $snmp->get_entries(-columns => [$m_oid]);
-                foreach my $tkey (keys(%$tresult)) {
-                        my($tindex) = ($tkey =~ /($t_oid\.\d+)/);
-                        $tresult->{$tkey} =~ s/[^\w\s]//g;
-                        $ttmpprs{$tindex}{t_count} = $tresult->{$tkey};
+                my @tresult = $snmp->bulkwalk(0, 10000, $t_oid);
+                my @cresult = $snmp->bulkwalk(0, 10000, $c_oid);
+                my @mresult = $snmp->bulkwalk(0, 10000, $m_oid);
+                for my $tkey (@tresult) {
+                        for my $tval (@$tkey) {
+                                $TotalPagecount = $TotalPagecount + $tval->[2];
+                        }
                 }
-                foreach my $tkey (keys(%ttmpprs)) {
-                        my $t_count=$ttmpprs{$tkey}{t_count};
-                        $TotalPagecount = $TotalPagecount+$t_count;
+                for my $ckey (@cresult) {
+                        for my $cval (@$ckey) {
+                                $ColorPagecount = $ColorPagecount + $cval->[2];
+                        }
                 }
-                foreach my $ckey (keys(%$cresult)) {
-                        my($cindex) = ($ckey =~ /($c_oid\.\d+)/);
-                        $cresult->{$ckey} =~ s/[^\w\s]//g;
-                        $ctmpprs{$cindex}{c_count} = $cresult->{$ckey};
-                }
-                foreach my $ckey (keys(%ctmpprs)) {
-                        my $c_count=$ctmpprs{$ckey}{c_count};
-                        $ColorPagecount = $ColorPagecount+$c_count;
-                }
-                foreach my $mkey (keys(%$mresult)) {
-                        my($mindex) = ($mkey =~ /($m_oid\.\d+)/);
-                        $mresult->{$mkey} =~ s/[^\w\s]//g;
-                        $mtmpprs{$mindex}{m_count} = $mresult->{$mkey};
-                }
-                foreach my $mkey (keys(%mtmpprs)) {
-                        my $m_count=$mtmpprs{$mkey}{m_count};
-                        $MonoPagecount = $MonoPagecount+$m_count;
+                for my $mkey (@mresult) {
+                        for my $mval (@$mkey) {
+                                $MonoPagecount = $MonoPagecount + $mval->[2];
+                        }
                 }
         } else {
-                $result=$snmp->get_request(-varbindlist => [$m_oid]);
-                if((not defined($result)) || ($result->{$m_oid} eq 'noSuchInstance')) {
-                        $result=$snmp->get_request(-varbindlist => [$t_oid]);
-                                if((not defined($result)) || ($result->{$m_oid} eq 'noSuchInstance')) {
-                                        $result=$snmp->get_request(-varbindlist => [$oid]);
-                                        if ($snmp->error() =~ m/genError/) {
-                                                $result = retry_snmp($oid,undef,undef,undef,undef,undef,undef,undef);
-                                        }
+                $result=$snmp->get([$m_oid]);
+                if((not defined($result)) || (lc($result) eq 'nosuchinstance') || (lc($result) eq 'nosuchobject')) {
+                        $result=$snmp->get([$t_oid]);
+                                if((not defined($result)) || (lc($result) eq 'nosuchinstance') || (lc($result) eq 'nosuchobject')) {
+                                        $result=$snmp->get([$oid]);
                                         if(not defined($result)) {
-                                                print "CRITICAL - snmp error: " . $snmp->error() . "\n";
+                                                print "CRITICAL - snmp error: " . $snmp->{ErrorStr} . "\n";
                                                 exit($ERRORS{'CRITICAL'});
-                                        } else { $TotalPagecount=$result->{$oid}; }
-                                } else { $TotalPagecount=$result->{$t_oid}; }
-                } else { $MonoPagecount=$result->{$m_oid}; }
+                                        } else { $TotalPagecount=$result; }
+                                } else { $TotalPagecount=$result; }
+                } else { $MonoPagecount=$result; }
         }
         if (($c_a3 || $c_a4) > 0) {
                 $ColorPagecount = $c_a3 + $c_a4;
         } else {
-                $result=$snmp->get_request(-varbindlist => [$c_oid]);
+                $result=$snmp->get([$c_oid]);
                 if(not defined($result)) {
-                } else { $ColorPagecount=$result->{$c_oid}; }
+                } else { $ColorPagecount=$result; }
         }
         if (($TotalPagecount) or (($model =~ m/kyocera|ecosys|taskalfa|4200dn/))) {
                 $EXITSTRING = "Pagecount is $TotalPagecount";
@@ -774,33 +741,35 @@ sub check_consumables {
                 'CMaxCap'       => '.1.3.6.1.2.1.43.31.1.1.7.1'
         );
 
-        my ($consumable,$measurable,$perfcount);
+        my ($consumable,$measurable,$perfcount,$rindex,$result);
         my $pct_remaining = "";
         my %nsioids;
         my $nsicounter = 1;
         my $nsioidrow = 1;
-        my $result;
+        my @results;
+        my (%hresults,%chresults);
+        
+        @results = ($snmp->bulkwalk(0, 1000, $pr_oids{Names}),
+                    $snmp->bulkwalk(0, 1000, $pr_oids{CurCap}),
+                    $snmp->bulkwalk(0, 1000, $pr_oids{MaxCap}));
 
-        if ($opt_contextname) {
-                $result = $snmp->get_entries(
-                        -contextname   => $opt_contextname,
-                        -columns       => [$pr_oids{Names}, $pr_oids{CurCap}, $pr_oids{MaxCap}],
-                        );
-        } else {
-                $result = $snmp->get_entries(-columns => [$pr_oids{Names}, $pr_oids{CurCap}, $pr_oids{MaxCap}]);
+        for my $key (@results) {
+                for my $v (@$key) {
+                        $rindex = $v->[0] . "." . $v->[1];
+                        $hresults{$rindex} = $v->[2];
+                }
         }
-        if ($snmp->error() =~ m/genError/) {
-                $result = retry_snmp($pr_oids{Names}, $pr_oids{CurCap}, $pr_oids{MaxCap},undef,undef,undef,undef,undef);
-        }
+        my $result = \%hresults;
+
         if(not defined($result)) {
-                if ($snmp->error() =~ m/The requested entries are empty or do not exist/) {
+                if ($snmp->{ErrorStr} =~ m/The requested entries are empty or do not exist/) {
                         while ($nsicounter gt 0) {
                                 my $nsiName = "$pr_oids{Names}.$nsioidrow";
                                 my $nsiCurCap = "$pr_oids{CurCap}.$nsioidrow";
                                 my $nsiMaxCap = "$pr_oids{MaxCap}.$nsioidrow";
-                                my $nsiNresult = $snmp->get_request(-varbindlist => [$nsiName]);
-                                my $nsiCresult = $snmp->get_request(-varbindlist => [$nsiCurCap]);
-                                my $nsiMresult = $snmp->get_request(-varbindlist => [$nsiMaxCap]);
+                                my $nsiNresult = $snmp->get($nsiName);
+                                my $nsiCresult = $snmp->get($nsiCurCap);
+                                my $nsiMresult = $snmp->get($nsiMaxCap);
                                 if ($nsiNresult->{$nsiName} eq "noSuchInstance") { $nsicounter = 0; }
                                 else {
                                         %nsioids = (%nsioids,
@@ -813,11 +782,21 @@ sub check_consumables {
                         }
                         $result = \%nsioids;
                 } else {
-                        print "CRITICAL - snmp error: " . $snmp->error() . "\n";
+                        print "CRITICAL - snmp error: " . $snmp->{ErrorStr} . "\n";
                         exit($ERRORS{'CRITICAL'});
                 }
         }
-        my $cresult = $snmp->get_entries(-columns => [$pr_oids{CNames}, $pr_oids{CCurCap}, $pr_oids{CMaxCap}]);
+        my @cresults = ($snmp->bulkwalk(0, 10000, $pr_oids{CNames}), 
+                        $snmp->bulkwalk(0, 10000, $pr_oids{CCurCap}), 
+                        $snmp->bulkwalk(0, 10000, $pr_oids{CMaxCap}));
+
+        for my $ckey (@cresults) {
+                for my $cv (@$ckey) {
+                        $rindex = $cv->[0] . "." . $cv->[1];
+                        $chresults{$rindex} = $cv->[2];
+                }
+        }
+        my $cresult = \%chresults;
 
         get_consumables($result, $pr_oids{Table}, $pr_oids{Names}, $pr_oids{CurCap}, $pr_oids{MaxCap});
         get_consumables($cresult, $pr_oids{CTable}, $pr_oids{CNames}, $pr_oids{CCurCap}, $pr_oids{CMaxCap});
@@ -933,7 +912,8 @@ sub check_consumables {
 sub check_paper_trays {
         my $found=0;
         my %tmpprs = ();
-        my ($name,$lcname,$feeder,$cap,$tstatus,$traymessage,$maxcap,$feeddim,$xfeeddim,$cap_pct,$result);
+        my ($name,$lcname,$feeder,$cap,$tstatus,$traymessage,$maxcap,$feeddim,$xfeeddim,$cap_pct,$result,$rindex);
+        my %hresults;
         my %tray_oids = (
                 'Table'         => '.1.3.6.1.2.1.43.8.2.1',
                 'Cap'           => '.1.3.6.1.2.1.43.8.2.1.10.1',
@@ -946,24 +926,27 @@ sub check_paper_trays {
                 'XFeedDimUnits' => '.1.3.6.1.2.1.43.8.2.1.3.1'
         );
 
-        if ($opt_contextname) {
-                $result = $snmp->get_entries(
-                        -contextname   => $opt_contextname,
-                        -columns => [$tray_oids{Name},$tray_oids{Cap},$tray_oids{MaxCap},$tray_oids{FeedDim},$tray_oids{FeedDimUnits},$tray_oids{XFeedDim},$tray_oids{XFeedDimUnits},$tray_oids{Status}]
-                        );
-        } else {
-                $result = $snmp->get_entries(-columns => [$tray_oids{Name},$tray_oids{Cap},$tray_oids{MaxCap},$tray_oids{FeedDim},$tray_oids{FeedDimUnits},$tray_oids{XFeedDim},$tray_oids{XFeedDimUnits},$tray_oids{Status}]);
-        }
-        my $model = "Unknown Model";
-        my $mresult = $snmp->get_request(-varbindlist => [".1.3.6.1.2.1.25.3.2.1.3.1"]);
-        ($mresult) && ($model=$mresult->{".1.3.6.1.2.1.25.3.2.1.3.1"});
+        my @results = ($snmp->bulkwalk(0, 1000, $tray_oids{Name}),
+                    $snmp->bulkwalk(0, 1000, $tray_oids{Cap}),
+                    $snmp->bulkwalk(0, 1000, $tray_oids{MaxCap}),
+                    $snmp->bulkwalk(0, 1000, $tray_oids{FeedDim}),
+                    $snmp->bulkwalk(0, 1000, $tray_oids{FeedDimUnits}),
+                    $snmp->bulkwalk(0, 1000, $tray_oids{XFeedDim}),
+                    $snmp->bulkwalk(0, 1000, $tray_oids{XFeedDimUnits}),
+                    $snmp->bulkwalk(0, 1000, $tray_oids{Status}));
 
-        if ($snmp->error() =~ m/genError/) {
-                $result = retry_snmp($tray_oids{Name},$tray_oids{Cap},$tray_oids{MaxCap},$tray_oids{FeedDim},$tray_oids{FeedDimUnits},$tray_oids{XFeedDim},$tray_oids{XFeedDimUnits},$tray_oids{Status});
+        for my $key (@results) {
+                for my $v (@$key) {
+                        $rindex = $v->[0] . "." . $v->[1];
+                        $hresults{$rindex} = $v->[2];
+                }
         }
+        $result = \%hresults;
+
+        my $model = check_model(2);
 
         if(not defined($result)) {
-                print "CRITICAL - snmp error: "  . $snmp->error() . "\n";
+                print "CRITICAL - snmp error: "  . $snmp->{ErrorStr} . "\n";
                 exit($ERRORS{'CRITICAL'});
         }
         foreach my $key (keys(%$result)) {
@@ -1159,38 +1142,6 @@ sub check_paper_trays {
                 if ($perfcount == 0) { $EXITSTRING.= ";;;;"; } else { $EXITSTRING.=";;;; "; }
         }
 }
-sub retry_snmp {
-        my ($sr1,$sr2,$sr3,$sr4,$sr5,$sr6,$sr7,$sr8) = @_;
-
-        if ($sr8) {
-                if ($opt_contextname) {
-                        return $snmp->get_entries(
-                                -contextname   => $opt_contextname,
-                                -columns => [$sr1,$sr2,$sr3,$sr4,$sr5,$sr6,$sr7,$sr8],
-                                );
-                } else {
-                        return $snmp->get_entries(-columns => [$sr1,$sr2,$sr3,$sr4,$sr5,$sr6,$sr7,$sr8]);
-                }
-        } elsif ($sr2) {
-                if ($opt_contextname) {
-                        return $snmp->get_entries(
-                                -contextname   => $opt_contextname,
-                                -columns => [$sr1,$sr2,$sr3,$sr4,$sr5,$sr6,$sr7,$sr8],
-                                );
-                } else {
-                        return $snmp->get_entries(-columns => [$sr1,$sr2,$sr3]);
-                }
-        } else {
-                if ($opt_contextname) {
-                        return $snmp->get_entries(
-                                -contextname   => $opt_contextname,
-                                -varbindlist => [$sr1],
-                                );
-                } else {
-                        return $snmp->get_request(-varbindlist => [$sr1]);
-                }
-        }
-}
 
 # set alarm in case we hang
 $SIG{ALRM} = sub {
@@ -1199,42 +1150,68 @@ $SIG{ALRM} = sub {
 };
 alarm($opt_timeout*$opt_retries);
 
-# connect to the snmp server
+# Convert timeout to microseconds
+my $stimeout = ($opt_timeout * 1000000);
+
+# Check snmp version, set snmp parameters
+
 if (!$opt_authpass) { $opt_authpass = $opt_authkey; }
 if (!$opt_privpass) { $opt_privpass = $opt_privkey; }
 
-my %snmpargs = (-hostname     => $opt_host,
-                -version      => $opt_snmpver,
-                -timeout      => $opt_timeout,
-                -retries      => $opt_retries,
-                -translate    => [-octetstring => 0],);
+#base snmp arguments
+my %snmpargs = (DestHost      => $opt_host,
+                Version       => $opt_snmpver,
+                RemotePort    => 161,
+                Timeout       => $stimeout,
+                Retries       => $opt_retries,
+);
 
-my %snmpv12 = (-community => $opt_community,);
-my %snmpv3 = (-username     => $opt_user,
-              -authpassword => $opt_authpass,
-              -authprotocol => $opt_authproto,
-              -privpassword => $opt_privpass,
-              -privprotocol => $opt_privproto,);
+#snmp v1 and v2c specific arguments
+my %snmpv12 = ( Community  => $opt_community, 
+                UseNumeric => '1', );
 
-my %snmpv3key = (-authkey     => $opt_authkey,
-                 -privkey     => $opt_privkey,);
+#snmpv3 arguments
+#base
+my %snmpv3 = ( SecName     => $opt_user, );
 
-if ($opt_snmpver le 2) {
-        %snmpargs = (%snmpargs, %snmpv12);
+if ( $opt_user and $opt_authpass and $opt_privpass ) {
+        #authPriv
+        my %snmpv3ap = ( SecLevel    => 'authPriv',
+                         AuthPass    => $opt_authpass,
+                         AuthProto   => $opt_authproto,
+                         PrivPass    => $opt_privpass,
+                         PrivProto   => $opt_privproto, );
+        %snmpv3 = ( %snmpv3, %snmpv3ap );
+} elsif ( $opt_user and $opt_authpass ) {
+        #authNoPriv
+        my %snmpv3anp = ( SecLevel    => 'authNoPriv',
+                          AuthPass    => $opt_authpass,
+                          AuthProto   => $opt_authproto, );
+        %snmpv3 = ( %snmpv3, %snmpv3anp );
+} else {
+        #noAuthNoPriv
+        my %snmpv3nanp = ( SecLevel    => 'noAuthNoPriv', );
+        %snmpv3 = ( %snmpv3, %snmpv3nanp );
 }
-if ($opt_snmpver eq 3) {
-        if ($opt_authkey or $opt_privkey) {
-                %snmpargs = (%snmpargs, %snmpv3, %snmpv3key);
+
+if ( $opt_contextname ) { %snmpv3 = ( %snmpv3, Context    => $opt_contextname, ); }
+
+my %snmpv3key = ( AuthLocalizedKey     => $opt_authkey,
+                  PrivLocalizedKey     => $opt_privkey, );
+
+if ( $opt_snmpver le 2 ) {
+        %snmpargs = ( %snmpargs, %snmpv12 );
+} elsif ( $opt_snmpver eq 3 ) {
+        if ( $opt_authkey or $opt_privkey ) {
+                %snmpargs = ( %snmpargs, %snmpv3, %snmpv3key );
         } else {
-                %snmpargs = (%snmpargs, %snmpv3);
+                %snmpargs = ( %snmpargs, %snmpv3 );
         }
+} else {
+        $state = 'UNKNOWN';
+        stop( "$state: It appears you are missing one or more parameters necessary for v$opt_snmpver to function.\n",$state );
 }
-($snmp, $errstr) = Net::SNMP->session(%snmpargs);
-
-if (!$snmp) {
-  print "Could not create SNMP session: $errstr\n";
-  exit($ERRORS{'UNKNOWN'});
-}
+$snmp = new SNMP::Session( %snmpargs );
 
 if ($opt_messages) {check_messages();}
 if ($opt_model) {check_model(1); exit($ERRORS{'OK'});}
