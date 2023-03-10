@@ -55,10 +55,10 @@ use vars qw(
     $opt_messages $opt_model $opt_consum $opt_tray $opt_pagecount
     $opt_metric $opt_nofeeder $opt_nofuser $opt_user $opt_authpass
     $opt_authkey $opt_authproto $opt_privkey $opt_privpass
-    $opt_privproto $opt_contextname $opt_lang
+    $opt_privproto $opt_contextname $opt_lang $opt_firmware
 );
 my (@consumables,@status,@trays,@strays,@percentages,@mresults,@message,@measurables);
-my ($state,$statuscode,$EXITSTRING);
+my ($state,$statuscode,$EXITSTRING,$snmpcmds);
 my ($i,$tcount,$scount,$traynumber,$cnumber,$mnumber,$critcount,$warncount) = 0;
 
 my %STATUS_CODE =
@@ -93,6 +93,7 @@ $opt_privproto   = undef;
 $opt_privkey     = undef;
 $opt_contextname = undef;
 $opt_lang        = undef;
+$opt_firmware    = undef;
 
 # get options
 Getopt::Long::Configure('bundling');
@@ -114,6 +115,7 @@ GetOptions(
     'nofeeder'            => \$opt_nofeeder,
     'nofuser'             => \$opt_nofuser,
     'metric'              => \$opt_metric,
+    'firmware'            => \$opt_firmware,
     'u|user=s'            => \$opt_user,
     'A|authpass=s'        => \$opt_authpass,
     'a|authproto=s'       => \$opt_authproto,
@@ -154,20 +156,21 @@ if ($opt_lang) {
     }
 }
 
-# only use one of messages|model|consum|tray|pagecount options
+# only use one of messages|model|consum|tray|pagecount|firmware options
 my $count=0;
 ($opt_messages) && ($count++);
 ($opt_model) && ($count++);
 ($opt_consum) && ($count++);
 (defined($opt_tray)) && ($count++);
 ($opt_pagecount) && ($count++);
+($opt_firmware) && ($count++);
 if ($count>1) {
-    print "Only use one of messages|model|consum|trays|pagecount options\n";
+    print "Only use one of messages|model|consum|trays|pagecount|firmware options\n";
     print_help();
     exit($ERRORS{'UNKNOWN'});
 }
 if ($count<1) {
-    print "Only use one of messages|model|consum|trays|pagecount options\n";
+    print "Only use one of messages|model|consum|trays|pagecount|firmware options\n";
     print_help();
     exit($ERRORS{'UNKNOWN'});
 }
@@ -210,6 +213,8 @@ Required Arguments:
     Checks trays for paper status.
  --consum
     Checks consumables for status.
+ --firmware
+    Checks current firmware revision and date of printer.
 
 Optional Arguments:
  -C, --community=STRING
@@ -327,6 +332,38 @@ sub check_messages {
     print "$MESSAGES\n";
 }
 
+sub check_firmware {
+    use Time::Piece;
+    use Time::Seconds;
+    my ($ldy, $dt);
+
+    my ($model,$fwdate,$fwrev,$fwupg);
+    $model = check_model(2);
+
+    if ($model =~ m/hp/) {
+        $fwdate = $snmp->get(['.1.3.6.1.4.1.11.2.3.9.4.2.1.1.3.5.0']);
+        $fwrev = $snmp->get(['.1.3.6.1.4.1.11.2.3.9.4.2.1.1.3.6.0']);
+    } elsif ($model =~ m/xerox/) {
+        (localtime->yy) =~ /\d(\d)/;
+        my $ldy = $1;
+        $fwrev = $snmp->get(['.1.3.6.1.2.1.25.6.3.1.2.2']);
+        #$fwupg = $snmp->fget(['.1.3.6.1.2.1.25.6.3.1.5.2']);
+        chomp($fwupg = `snmpget $snmpcmds .1.3.6.1.2.1.25.6.3.1.5.2`);
+        if ( $fwrev =~ /(\d+\.\d+\.\d+\.\d+)/ ) { $fwrev = $1; }
+        if ( $fwrev =~ /(\d)\.(\d\d\d)\d\d/ ) { 
+            if ($1 gt $ldy) {
+                $dt = Time::Piece->strptime( "201" . $1 . "0101", '%Y%m%d');
+            } else {
+                $dt = Time::Piece->strptime( "202" . $1 . "0101", '%Y%m%d');
+            }
+            $dt += ONE_DAY * $2;
+            $fwdate = $dt->strftime('%Y%m%d');
+        }
+        if ( $fwupg =~ /(\d+-\d+-\d+)\,(\d+:\d+:\d+)/ ) { print "\n\n\n$1 $2\n\n"; }
+    }
+    print "Revision: $fwrev (Date: $fwdate)\n";
+}
+
 sub check_page_count {
     my ($oid,$result,$model,$t_oid,$c_oid,$m_oid,
         $m_a3_oid,$m_a4_oid,$c_a3_oid,$c_a4_oid,
@@ -398,11 +435,11 @@ sub check_page_count {
             $result=$snmp->get([$t_oid]);
             if((not defined($result)) || (lc($result) eq 'nosuchinstance') || (lc($result) eq 'nosuchobject')) {
                 $result=$snmp->get([$oid]);
-                    if(not defined($result)) {
-                        $state = "CRITICAL";
-                        $EXITSTRING = "$state - " . $snmp->{ErrorStr} . "\n";
-                        stop($EXITSTRING, $state);
-                    } else { $TotalPagecount=$result; }
+                if(not defined($result)) {
+                    $state = "CRITICAL";
+                    $EXITSTRING = "$state - " . $snmp->{ErrorStr} . "\n";
+                    stop($EXITSTRING, $state);
+                } else { $TotalPagecount=$result; }
             } else { $TotalPagecount=$result; }
         } else { $MonoPagecount=$result; }
     }
@@ -773,10 +810,9 @@ sub check_consumables {
                 if (lc($nsiNresult->{$nsiName}) eq "nosuchinstance") { $nsicounter = 0; }
                 else {
                     %nsioids = (%nsioids,
-                        $nsiName => $nsiNresult->{$nsiName},
-                        $nsiCurCap => $nsiCresult->{$nsiCurCap},
-                        $nsiMaxCap => $nsiMresult->{$nsiMaxCap}
-                    );
+                                $nsiName => $nsiNresult->{$nsiName},
+                                $nsiCurCap => $nsiCresult->{$nsiCurCap},
+                                $nsiMaxCap => $nsiMresult->{$nsiMaxCap});
                 }
                 $nsioidrow++;
             }
@@ -1159,7 +1195,7 @@ my %snmpargs = (DestHost      => $opt_host,
                 Retries       => $opt_retries,
                 UseNumeric    => '1',
 );
-
+$snmpcmds = "-v$opt_snmpver -Cf";
 #snmp v1 and v2c specific arguments
 my %snmpv12 = ( Community  => $opt_community,);
 
@@ -1175,6 +1211,7 @@ if ( $opt_user and $opt_authpass and $opt_privpass ) {
                      PrivPass    => $opt_privpass,
                      PrivProto   => $opt_privproto, );
     %snmpv3 = ( %snmpv3, %snmpv3ap );
+    $snmpcmds .= " -l authPriv -u $opt_user -a $opt_authproto -A $opt_authpass -x $opt_privproto -X $opt_privpass $opt_host";
 } elsif ( $opt_user and $opt_authpass ) {
     #authNoPriv
     my %snmpv3anp = ( SecLevel    => 'authNoPriv',
@@ -1209,6 +1246,7 @@ if ($opt_messages) {check_messages();}
 if ($opt_model) {check_model(1); exit($ERRORS{'OK'});}
 if ($opt_pagecount) {check_page_count();}
 if ($opt_consum) {check_consumables();}
+if ($opt_firmware) {check_firmware();}
 if (defined($opt_tray)) {check_paper_trays($opt_tray);}
 
 $i = 0;
