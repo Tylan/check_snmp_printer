@@ -6,7 +6,7 @@
 #                        for                            #
 #                  Icinga / Nagios                      #
 #                                                       #
-#          Version 2.0.0 (March 09, 2023)               #
+#          Version 2.0.0 (March 24, 2023)               #
 #                by Bob McLoughlin                      #
 #         E-mail: rmcloughlin@outlook.com               #
 #                                                       #
@@ -45,7 +45,6 @@ use utils qw( %ERRORS $TIMEOUT &print_revision &support &usage );
 use SNMP;
 use Getopt::Long;
 use Data::Dumper;
-
 
 # globals
 use vars qw(
@@ -264,13 +263,16 @@ sub check_model {
     if ($pcheck == 1 || $pcheck == 2) {
         $oid="1.3.6.1.2.1.25.3.2.1.3.1";
         $MODEL=$snmp->get([$oid]);
+        if ($MODEL =~ /(Lexmark \w+) (\w+) (\w+\.\w+\.\w+)/ ) { $MODEL = $1; $SERIAL = $2; }
         if ($snmp->{ErrorStr}) { stop("CRITICAL - $snmp->{ErrorStr}", 'CRITICAL'); }
         if ($pcheck == 2) { return lc $MODEL; }
     }
     if ($pcheck == 1) {
-        $oid=".1.3.6.1.2.1.43.5.1.1.17.1";
-        $SERIAL=$snmp->get([$oid]);
-        $SERIAL =~ s/\"//g;
+        if (!$MODEL =~ m/Lexmark/) {
+            $oid=".1.3.6.1.2.1.43.5.1.1.17.1";
+            $SERIAL=$snmp->get([$oid]);
+            $SERIAL =~ s/\"//g;
+        }
         print "$MODEL, Serial # $SERIAL\n";
     }
 }
@@ -337,7 +339,7 @@ sub check_firmware {
     use Time::Seconds;
     my ($ldy, $dt);
 
-    my ($model,$fwdate,$fwrev,$fwupg);
+    my ($model,$fwdate,$fwrev,$fwupg,$fwinst);
     $model = check_model(2);
 
     if ($model =~ m/hp/) {
@@ -347,7 +349,6 @@ sub check_firmware {
         (localtime->yy) =~ /\d(\d)/;
         my $ldy = $1;
         $fwrev = $snmp->get(['.1.3.6.1.2.1.25.6.3.1.2.2']);
-        #$fwupg = $snmp->fget(['.1.3.6.1.2.1.25.6.3.1.5.2']);
         chomp($fwupg = `snmpget $snmpcmds .1.3.6.1.2.1.25.6.3.1.5.2`);
         if ( $fwrev =~ /(\d+\.\d+\.\d+\.\d+)/ ) { $fwrev = $1; }
         if ( $fwrev =~ /(\d)\.(\d\d\d)\d\d/ ) { 
@@ -359,9 +360,37 @@ sub check_firmware {
             $dt += ONE_DAY * $2;
             $fwdate = $dt->strftime('%Y%m%d');
         }
-        if ( $fwupg =~ /(\d+-\d+-\d+)\,(\d+:\d+:\d+)/ ) { print "\n\n\n$1 $2\n\n"; }
+        if ( $fwupg =~ /(\d+-\d+-\d+)\,(\d+:\d+:\d+)/ ) { $fwinst = "Installed on: $1 at $2\n"; }
+    } elsif ($model =~ m/kyocera|ecosys|taskalfa|4200dn/) {
+        $fwrev = $snmp->get(['.1.3.6.1.4.1.1347.43.5.4.1.5.1.1']);
+    } elsif ($model =~ m/canon/) {
+        $fwrev = $snmp->get(['.1.3.6.1.4.1.1602.1.1.1.4.0']);
+    } elsif ($model =~ m/lexmark/) {
+        $fwrev = $snmp->get(['.1.3.6.1.2.1.25.3.2.1.3.1']);
+        if ($fwrev =~ /Lexmark \w+ \w+ (\w+)\.(\w+)\.(\w+)/ ) { $fwrev = "$1.$2.$3"; }
+        if ($1 eq "LW20") { $fwdate = "August 2013"; }
+        if ($1 eq "LW30") { $fwdate = "March 2014"; }
+        if ($1 eq "LW40") { $fwdate = "July 2014"; }
+        if ($1 eq "LW41") { $fwdate = "May 2015"; }
+        if ($1 eq "LW50") { $fwdate = "April 2015"; }
+        if ($1 eq "LW60") { $fwdate = "February 2016"; }
+        if ($1 eq "LW62") { $fwdate = "November 2016"; }
+        if ($1 eq "LW63") { $fwdate = "August 2017"; }
+        if ($1 eq "LW70") { $fwdate = "June 2018"; }
+        if ($1 eq "LW71") { $fwdate = "October 2018"; }
+        if ($1 eq "LW72") { $fwdate = "May 2019"; }
+        if ($1 eq "LW73") { $fwdate = "August 2019"; }
+        if ($1 eq "LW74") { $fwdate = "December 2019"; }
+        if ($1 eq "LW75") { $fwdate = "March 2020"; }
+        if ($1 eq "LW80") { $fwdate = "January 2022"; }
+    } elsif ($model =~ m/ricoh/) {
+        $fwrev = $snmp->get(['.1.3.6.1.4.1.367.3.2.1.2.20.1.2.1.1']);
     }
-    print "Revision: $fwrev (Date: $fwdate)\n";
+    if (!$fwrev) { $EXITSTRING = "No current firmware found for this printer. Make a feature request to have it added."; }
+    else { $EXITSTRING = "Revision: $fwrev"; }
+    if ($fwdate) { $EXITSTRING .= " (Date: $fwdate)\n"; } else { $EXITSTRING .= "\n"; }
+    if ($fwinst) { $EXITSTRING .= $fwinst; }
+    stop($EXITSTRING, 'OK');
 }
 
 sub check_page_count {
@@ -1183,9 +1212,8 @@ alarm($opt_timeout*$opt_retries);
 my $stimeout = ($opt_timeout * 1000000);
 
 # Check snmp version, set snmp parameters
-
-if (!$opt_authpass) { $opt_authpass = $opt_authkey; }
-if (!$opt_privpass) { $opt_privpass = $opt_privkey; }
+#if (!$opt_authpass) { $opt_authpass = $opt_authkey; }
+#if (!$opt_privpass) { $opt_privpass = $opt_privkey; }
 
 #base snmp arguments
 my %snmpargs = (DestHost      => $opt_host,
@@ -1195,48 +1223,80 @@ my %snmpargs = (DestHost      => $opt_host,
                 Retries       => $opt_retries,
                 UseNumeric    => '1',
 );
-$snmpcmds = "-v$opt_snmpver -Cf";
-#snmp v1 and v2c specific arguments
-my %snmpv12 = ( Community  => $opt_community,);
-
-#snmpv3 arguments
-#base
-my %snmpv3 = ( SecName     => $opt_user, );
-
-if ( $opt_user and $opt_authpass and $opt_privpass ) {
-    #authPriv
-    my %snmpv3ap = ( SecLevel    => 'authPriv',
-                     AuthPass    => $opt_authpass,
-                     AuthProto   => $opt_authproto,
-                     PrivPass    => $opt_privpass,
-                     PrivProto   => $opt_privproto, );
-    %snmpv3 = ( %snmpv3, %snmpv3ap );
-    $snmpcmds .= " -l authPriv -u $opt_user -a $opt_authproto -A $opt_authpass -x $opt_privproto -X $opt_privpass $opt_host";
-} elsif ( $opt_user and $opt_authpass ) {
-    #authNoPriv
-    my %snmpv3anp = ( SecLevel    => 'authNoPriv',
-                      AuthPass    => $opt_authpass,
-                      AuthProto   => $opt_authproto, );
-    %snmpv3 = ( %snmpv3, %snmpv3anp );
-} else {
-    #noAuthNoPriv
-    my %snmpv3nanp = ( SecLevel    => 'noAuthNoPriv', );
-    %snmpv3 = ( %snmpv3, %snmpv3nanp );
+if ($opt_snmpver eq 2) {
+    $snmpcmds = "-v" . $opt_snmpver . "c -Cf -On -Oa";
+} else { 
+    $snmpcmds = "-v$opt_snmpver -Cf -On -Oa";
 }
 
-if ( $opt_contextname ) { %snmpv3 = ( %snmpv3, Context    => $opt_contextname, ); }
+#snmp v1 and v2c specific arguments
+my (%snmpv12,%snmpv3);
+if ($opt_snmpver ne 3) { 
+    %snmpv12 = ( Community  => $opt_community,);
+    $snmpcmds .= " -c $opt_community";
+} else { #snmpv3 arguments
+    #base
+    %snmpv3 = ( SecName     => $opt_user, );
+    $snmpcmds .= " -u $opt_user";
+}
 
-my %snmpv3key = ( AuthLocalizedKey     => $opt_authkey,
-                  PrivLocalizedKey     => $opt_privkey, );
+if ( ($opt_user) and ($opt_authproto or $opt_privproto) ) {
+    my (%snmpv3pl,%snmpv3ap,%snmpv3pp,%snmpv3aa,%snmpv3pa);
+
+    # Auth Privilege
+    if ( $opt_authproto and $opt_privproto ) {
+        %snmpv3pl = ( SecLevel   => 'authPriv', );
+        $snmpcmds .= " -l authPriv";
+    } elsif ( $opt_authproto ) {
+        %snmpv3pl = ( SecLevel   => 'authNoPriv', );
+        $snmpcmds .= " -l authNoPriv";
+    } else {
+        %snmpv3pl = ( SecLevel   => 'noAuthNoPriv', );
+        $snmpcmds .= " -l noAuthNoPriv";
+    }
+
+    # Auth Protocols
+    if ($opt_authproto) {
+        %snmpv3ap = ( AuthProto   => $opt_authproto, );
+        $snmpcmds .= " -a $opt_authproto";
+    }
+    if ($opt_privproto) {
+        %snmpv3pp = ( PrivProto   => $opt_privproto, );
+        $snmpcmds .= " -x $opt_privproto";
+    }
+
+    # Auth Passphrase or Key
+    if ($opt_authpass) {
+        %snmpv3aa = ( AuthPass   => $opt_authpass, );
+        $snmpcmds .= " -A '" . $opt_authpass . "'";
+    }
+    if ($opt_authkey) {
+        %snmpv3aa = ( AuthLocalizedKey   => $opt_authkey, );
+        $snmpcmds .= " -3k '" . $opt_authkey . "'";
+    }
+    # Priv Passphrase or Key
+    if ($opt_privpass) {
+        %snmpv3pa = ( PrivPass   => $opt_privpass, );
+        $snmpcmds .= " -X '" . $opt_privpass . "'";
+    }
+    if ($opt_privkey) {
+        %snmpv3pa = ( PrivLocalizedKey   => $opt_privkey, );
+        $snmpcmds .= " -3K '" . $opt_privkey . "'";
+    }
+
+    %snmpv3 = ( %snmpv3, %snmpv3pl, %snmpv3ap, %snmpv3pp, %snmpv3aa, %snmpv3pa );
+
+    if ( $opt_contextname ) {
+        %snmpv3 = ( %snmpv3, Context    => $opt_contextname, );
+        $snmpcmds .= " -n $opt_contextname";
+    }
+    $snmpcmds .= " $opt_host ";
+}
 
 if ( $opt_snmpver le 2 ) {
     %snmpargs = ( %snmpargs, %snmpv12 );
 } elsif ( $opt_snmpver eq 3 ) {
-    if ( $opt_authkey or $opt_privkey ) {
-            %snmpargs = ( %snmpargs, %snmpv3, %snmpv3key );
-    } else {
-            %snmpargs = ( %snmpargs, %snmpv3 );
-    }
+    %snmpargs = ( %snmpargs, %snmpv3 );
 } else {
     $state = 'UNKNOWN';
     stop( "$state: It appears you are missing one or more parameters necessary for v$opt_snmpver to function.\n",$state );

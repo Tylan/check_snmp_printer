@@ -1,13 +1,15 @@
 <a name="2.0.0"></a>
-# [2.0.0](https://github.com/Tylan/check_snmp_printer/compare/v1.3.1...v2.0.0) (2023-03-09)
+# [2.0.0](https://github.com/Tylan/check_snmp_printer/compare/v1.3.1...v2.0.0) (2023-03-24)
 
 ### Features
 
 * Revamped SNMP code to now use Net-SNMP vs Net::SNMP due to limitations and quirkiness of Net::SNMP
 * Updated printers.conf
+* Added a new switch to check firmware revision and when able the firmware date and when it was installed (printer specific).
 
 ### Bug Fixes
 * Fixed issue where sometimes --nofeeder wasn't removing the correct tray (Issue #30)
+* Fixed Lexmark Model output so it excludes the Serial and Firmware revision as those are displayed elsewhere.
 
 <a name="1.3.1"></a>
 # [1.3.1](https://github.com/Tylan/check_snmp_printer/compare/v1.3.0...v1.3.1) (2022-09-27)
