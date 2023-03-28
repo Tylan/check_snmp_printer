@@ -1,3 +1,10 @@
+<a name="2.0.1"></a>
+# [2.0.1](https://github.com/Tylan/check_snmp_printer/compare/v2.0.0...v2.0.1) (2023-03-28)
+
+### Features
+
+* Added option to disable CRITICAL alerts on timeouts for printers that may be regularly powered off (Issue #31)
+
 <a name="2.0.0"></a>
 # [2.0.0](https://github.com/Tylan/check_snmp_printer/compare/v1.3.1...v2.0.0) (2023-03-24)
 

@@ -6,7 +6,7 @@
 #                        for                            #
 #                  Icinga / Nagios                      #
 #                                                       #
-#          Version 2.0.0 (March 24, 2023)               #
+#          Version 2.0.1 (March 28, 2023)               #
 #                by Bob McLoughlin                      #
 #         E-mail: rmcloughlin@outlook.com               #
 #                                                       #
@@ -55,6 +55,7 @@ use vars qw(
     $opt_metric $opt_nofeeder $opt_nofuser $opt_user $opt_authpass
     $opt_authkey $opt_authproto $opt_privkey $opt_privpass
     $opt_privproto $opt_contextname $opt_lang $opt_firmware
+    $opt_ignoffline
 );
 my (@consumables,@status,@trays,@strays,@percentages,@mresults,@message,@measurables);
 my ($state,$statuscode,$EXITSTRING,$snmpcmds);
@@ -65,7 +66,7 @@ my %STATUS_CODE =
 
 # config
 $PROGNAME    = $0;
-$VERSION     = '2.0.0';
+$VERSION     = '2.0.1';
 
 # init options
 $opt_version     = undef;
@@ -93,6 +94,7 @@ $opt_privkey     = undef;
 $opt_contextname = undef;
 $opt_lang        = undef;
 $opt_firmware    = undef;
+$opt_ignoffline  = undef;
 
 # get options
 Getopt::Long::Configure('bundling');
@@ -115,6 +117,7 @@ GetOptions(
     'nofuser'             => \$opt_nofuser,
     'metric'              => \$opt_metric,
     'firmware'            => \$opt_firmware,
+    'ignoreoffline'       => \$opt_ignoffline,
     'u|user=s'            => \$opt_user,
     'A|authpass=s'        => \$opt_authpass,
     'a|authproto=s'       => \$opt_authproto,
@@ -251,6 +254,8 @@ Optional Arguments:
     Disables checking of the manual feeder tray
  --nofuser
     Disables checking of the fuser unit
+ --ignoreoffline
+    Ignores timeouts and sets OK status for powered off printers
 
 EOB
 }
@@ -264,7 +269,13 @@ sub check_model {
         $oid="1.3.6.1.2.1.25.3.2.1.3.1";
         $MODEL=$snmp->get([$oid]);
         if ($MODEL =~ /(Lexmark \w+) (\w+) (\w+\.\w+\.\w+)/ ) { $MODEL = $1; $SERIAL = $2; }
-        if ($snmp->{ErrorStr}) { stop("CRITICAL - $snmp->{ErrorStr}", 'CRITICAL'); }
+        if ($snmp->{ErrorStr}) {
+            if ($snmp->{ErrorStr} =~ m/Timeout/ and ($opt_ignoffline)) {
+                stop("OK - Printer offline and check was ignored.", 'OK');
+            } else {
+                stop("CRITICAL - $snmp->{ErrorStr}", 'CRITICAL');
+            }
+        }
         if ($pcheck == 2) { return lc $MODEL; }
     }
     if ($pcheck == 1) {
@@ -1203,13 +1214,17 @@ sub check_paper_trays {
 
 # set alarm in case we hang
 $SIG{ALRM} = sub {
-    print "CRITICAL - Timeout after $opt_timeout seconds\n";
-    exit($ERRORS{'CRITICAL'});
+    if ($opt_ignoffline) {
+        stop("OK - Printer offline and check ignored.", "OK");
+    } else {
+      print "CRITICAL - Timeout after $opt_timeout seconds\n";
+      exit($ERRORS{'CRITICAL'});
+   }
 };
 alarm($opt_timeout*$opt_retries);
 
 # Convert timeout to microseconds
-my $stimeout = ($opt_timeout * 1000000);
+my $stimeout = ($opt_timeout * 250000);
 
 # Check snmp version, set snmp parameters
 #if (!$opt_authpass) { $opt_authpass = $opt_authkey; }
