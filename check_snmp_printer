@@ -828,7 +828,13 @@ sub check_consumables {
                 $snmp->bulkwalk(0, 1000, $pr_oids{CurCap}),
                 $snmp->bulkwalk(0, 1000, $pr_oids{MaxCap}));
 
-    if ($snmp->{ErrorStr}) { stop("CRITICAL - $snmp->{ErrorStr}", 'CRITICAL'); }
+    if ($snmp->{ErrorStr}) {
+        if ($snmp->{ErrorStr} =~ m/Timeout/ and ($opt_ignoffline)) {
+            stop("OK - Printer offline and check was ignored.", 'OK');
+        } else {
+            stop("CRITICAL - $snmp->{ErrorStr}", 'CRITICAL');
+        }
+    }
 
     for my $key (@results) {
         for my $v (@$key) {
@@ -857,10 +863,13 @@ sub check_consumables {
                 $nsioidrow++;
             }
             $result = \%nsioids;
+        } elsif ($snmp->{ErrorStr} =~ m/Timeout/ and ($opt_ignoffline)) {
+            stop("OK - Printer offline and check was ignored.", 'OK');
         } else {
             stop("CRITICAL - $snmp->{ErrorStr}", 'CRITICAL');
         }
     }
+
     my @cresults = ($snmp->bulkwalk(0, 10000, $pr_oids{CNames}), 
                     $snmp->bulkwalk(0, 10000, $pr_oids{CCurCap}), 
                     $snmp->bulkwalk(0, 10000, $pr_oids{CMaxCap}));
