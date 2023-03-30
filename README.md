@@ -1,6 +1,24 @@
 # check_snmp_printer
 Nagios and Icinga Plugin for Checking SNMP Printer Status (Trays, Consumables and Pagecounts) which includes PerfData.
 
+## 2.0.0 POSSIBLE CODE BREAKING UPDATE
+
+Must have Net-SNMP and its libraries installed.  Can be compiled from source from www.net-snmp.org (latest version) or via package managers:
+
+Debian:
+```
+sudo apt-get install snmp
+sudo apt-get install libsnmp-perl
+```
+
+Centos/RHEL:
+```
+sudo yum install net-snmp
+sudo yum install net-snmp-utils
+sudo yum install net-snmp-devel
+sudo yum install net-snmp-perl
+```
+
 Supported Printer Models:
 
 * Canon
@@ -36,16 +54,20 @@ These instructions assume your Icinga2 is installed on a RHEL/CentOS system.  Yo
 
 Perl >= 5.10
 
-Net-SNMP Libraries:
+Net-SNMP and Libraries:
 
 Debian:
 ```
+sudo apt-get install snmp
 sudo apt-get install libsnmp-perl
 ```
 
 Centos/RHEL:
 ```
+sudo yum install net-snmp
+sudo yum install net-snmp-utils
 sudo yum install net-snmp-devel
+sudo yum install net-snmp-perl
 ```
 
 Nagios plugins installed and located in one of the following directories:
