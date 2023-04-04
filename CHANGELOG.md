@@ -5,6 +5,10 @@
 
 * Added option to disable CRITICAL alerts on timeouts for printers that may be regularly powered off (Issue #31)
 
+### Bug Fixex
+
+* Toned down the max limit on the bulkwalk as the high amount was not necessary 
+
 <a name="2.0.0"></a>
 # [2.0.0](https://github.com/Tylan/check_snmp_printer/compare/v1.3.1...v2.0.0) (2023-03-24)
 
