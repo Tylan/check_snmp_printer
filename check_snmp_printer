@@ -451,9 +451,9 @@ sub check_page_count {
     if (($m_a3 || $m_a4) > 0) {
         $MonoPagecount = $m_a3 + $m_a4;
     } elsif ($model =~ m/kyocera|ecosys|taskalfa|4200dn/) {
-        my @tresult = $snmp->bulkwalk(0, 10, $t_oid);
-        my @cresult = $snmp->bulkwalk(0, 10, $c_oid);
-        my @mresult = $snmp->bulkwalk(0, 10, $m_oid);
+        my @tresult = $snmp->bulkwalk(0, 20, $t_oid);
+        my @cresult = $snmp->bulkwalk(0, 20, $c_oid);
+        my @mresult = $snmp->bulkwalk(0, 20, $m_oid);
         for my $tkey (@tresult) {
             for my $tval (@$tkey) {
                 $TotalPagecount = $TotalPagecount + $tval->[2];
@@ -529,7 +529,13 @@ sub get_consumables {
 
     foreach my $key (keys(%tmpprs)) {
         my $name=$tmpprs{$key}{name};
-        if ($name =~ m/Imaging Unit|Imaging Kit|Patrone|Cartouche|Unité|Courroie|Kit d/) { $consumable = $name; }
+        if ($name =~ m/Imaging Unit|Imaging Kit|Patrone|Cartouche|Unité|Courroie|Kit d/) {
+            if ($name =~ /(\w+) Imaging Unit/) {
+                $consumable = "$1 Imaging Unit";
+            } else {
+                $consumable = $name;
+            }
+        }
         else { ($consumable = $name) =~ s/(\w+).*/$1/; }
         if (($consumable =~ m/Fuser|Fixiererkit/ and $opt_nofuser)) { next; }
         if ($consumable eq "Canon") {
@@ -571,7 +577,7 @@ sub get_consumables {
 
         my $curcap=$tmpprs{$key}{curcap};
         my $maxcap=$tmpprs{$key}{maxcap};
-        if ($name =~ m/Drum|Resttoner|Waste Toner|Belt|Developer|200K|300K|Photoconductor|Staples G|Trommel|Tambour|dév|récupération/) {
+        if ($name =~ m/Drum|Resttoner|Waste|Belt|Developer|200K|300K|Photoconductor|Staples G|Trommel|Tambour|dév|récupération/) {
             next;
         }
         if ($name =~ m/Main Staple/) { $consumable = "Staples"; }
@@ -824,9 +830,9 @@ sub check_consumables {
     my @results;
     my (%hresults,%chresults);
         
-    @results = ($snmp->bulkwalk(0, 10, $pr_oids{Names}),
-                $snmp->bulkwalk(0, 10, $pr_oids{CurCap}),
-                $snmp->bulkwalk(0, 10, $pr_oids{MaxCap}));
+    @results = ($snmp->bulkwalk(0, 20, $pr_oids{Names}),
+                $snmp->bulkwalk(0, 20, $pr_oids{CurCap}),
+                $snmp->bulkwalk(0, 20, $pr_oids{MaxCap}));
 
     if ($snmp->{ErrorStr}) {
         if ($snmp->{ErrorStr} =~ m/Timeout/ and ($opt_ignoffline)) {
@@ -870,9 +876,9 @@ sub check_consumables {
         }
     }
 
-    my @cresults = ($snmp->bulkwalk(0, 10, $pr_oids{CNames}), 
-                    $snmp->bulkwalk(0, 10, $pr_oids{CCurCap}), 
-                    $snmp->bulkwalk(0, 10, $pr_oids{CMaxCap}));
+    my @cresults = ($snmp->bulkwalk(0, 20, $pr_oids{CNames}), 
+                    $snmp->bulkwalk(0, 20, $pr_oids{CCurCap}), 
+                    $snmp->bulkwalk(0, 20, $pr_oids{CMaxCap}));
 
     for my $ckey (@cresults) {
         for my $cv (@$ckey) {
