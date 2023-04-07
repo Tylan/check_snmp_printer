@@ -529,7 +529,6 @@ sub get_consumables {
 
     foreach my $key (keys(%tmpprs)) {
         my $name=$tmpprs{$key}{name};
-print "$name\n";
         if ($name =~ m/Imaging Unit|Imaging Kit|Patrone|Cartouche|Unité|Courroie|Kit d/) {
             if ($name =~ /(\w+) Imaging Unit/) {
                 $consumable = "$1 Imaging Unit";
