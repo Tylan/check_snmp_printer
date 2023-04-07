@@ -6,7 +6,7 @@
 #                        for                            #
 #                  Icinga / Nagios                      #
 #                                                       #
-#          Version 2.0.1 (April 5, 2023)                #
+#          Version 2.0.1 (April 7, 2023)                #
 #                by Bob McLoughlin                      #
 #         E-mail: rmcloughlin@outlook.com               #
 #                                                       #
@@ -66,7 +66,7 @@ my %STATUS_CODE =
 
 # config
 $PROGNAME    = $0;
-$VERSION     = '2.0.1';
+$VERSION     = '2.0.2';
 
 # init options
 $opt_version     = undef;
@@ -529,6 +529,7 @@ sub get_consumables {
 
     foreach my $key (keys(%tmpprs)) {
         my $name=$tmpprs{$key}{name};
+print "$name\n";
         if ($name =~ m/Imaging Unit|Imaging Kit|Patrone|Cartouche|Unité|Courroie|Kit d/) {
             if ($name =~ /(\w+) Imaging Unit/) {
                 $consumable = "$1 Imaging Unit";
@@ -568,7 +569,8 @@ sub get_consumables {
             my @split = split(' ',$consumable = $name);
             foreach my $rconsumable (@split) {
                 if ($rconsumable =~ m/Toner/) {
-                    ($consumable) = $name =~ /(?<=Toner )(\w+)/;
+                    ($consumable) = $name =~ /(?:Toner\s+(\w+))|(?:(\w+)\s+Toner)/;
+                    $consumable = $1 || $2 if (defined $1 || defined $2);
                  } else {
                     next;
                  }

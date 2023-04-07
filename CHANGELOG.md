@@ -1,5 +1,11 @@
+# [2.0.2](https://github.com/Tylan/check_snmp_printer/compare/v2.0.1...v2.0.2) (2023-04-07)
+
+### Bug Fixes
+
+* Added in a check for some Ricohs that have their toners named slightly differently (Issue #32)
+
 <a name="2.0.1"></a>
-# [2.0.1](https://github.com/Tylan/check_snmp_printer/compare/v2.0.0...v2.0.1) (2023-03-28)
+# [2.0.1](https://github.com/Tylan/check_snmp_printer/compare/v2.0.0...v2.0.1) (2023-04-05)
 
 ### Features
 
