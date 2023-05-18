@@ -435,10 +435,9 @@ sub check_reachability {
 }
 
 sub get_host_status {
-    use Net::Ping;
+    use Net::Ping::External qw(ping);
 
-    my $p = Net::Ping->new();
-    my $isUp = $p->ping($opt_host);
+    my $isUp = ping(host => $opt_host);
 
     if ($opt_debug) {
         if (($opt_redact) && ($isip)) { print "....<redacted_IP> is "; } else { print "....$opt_host is "; }
