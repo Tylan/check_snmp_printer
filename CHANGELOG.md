@@ -1,5 +1,10 @@
 # [2.0.2](https://github.com/Tylan/check_snmp_printer/compare/v2.0.1...v2.0.2) (2023-04-07)
 
+### Features
+
+* Added the ability to debug issues with the -d [1|2] command.
+* Added an option to redact output from debug command for submitting to support.
+
 ### Bug Fixes
 
 * Added in a check for some Ricohs that have their toners named slightly differently (Issue #32)

@@ -6,7 +6,7 @@
 #                        for                            #
 #                  Icinga / Nagios                      #
 #                                                       #
-#          Version 2.0.2 (April 7, 2023)                #
+#          Version 2.0.2 (May 18, 2023)                 #
 #                by Bob McLoughlin                      #
 #         E-mail: rmcloughlin@outlook.com               #
 #                                                       #
@@ -48,17 +48,17 @@ use Data::Dumper;
 
 # globals
 use vars qw(
-    $PROGNAME $VERSION %procs $snmp $errstr $oid
+    $PROGNAME $VERSION %procs $snmp $errstr $oid $isip
     $opt_version $opt_help $opt_timeout $opt_retries $opt_host
     $opt_community $opt_snmpver $opt_warning $opt_critical
     $opt_messages $opt_model $opt_consum $opt_tray $opt_pagecount
     $opt_metric $opt_nofeeder $opt_nofuser $opt_user $opt_authpass
     $opt_authkey $opt_authproto $opt_privkey $opt_privpass
     $opt_privproto $opt_contextname $opt_lang $opt_firmware
-    $opt_ignoffline
+    $opt_ignoffline $opt_debug $opt_redact $opt_port
 );
 my (@consumables,@status,@trays,@strays,@percentages,@mresults,@message,@measurables);
-my ($state,$statuscode,$EXITSTRING,$snmpcmds);
+my ($state,$statuscode,$EXITSTRING,$snmpcmds,$dbgsnmpcmds,%snmpargs,%dbgsnmpargs,$packedip,$hostip);
 my ($i,$tcount,$scount,$traynumber,$cnumber,$mnumber,$critcount,$warncount) = 0;
 
 my %STATUS_CODE =
@@ -74,6 +74,7 @@ $opt_help        = undef;
 $opt_timeout     = $TIMEOUT;
 $opt_retries     = 3;
 $opt_host        = undef;
+$opt_port        = 161;
 $opt_community   = 'public';
 $opt_snmpver     = 1;
 $opt_warning     = 20; # warning percentage: if lower: warning
@@ -95,6 +96,8 @@ $opt_contextname = undef;
 $opt_lang        = undef;
 $opt_firmware    = undef;
 $opt_ignoffline  = undef;
+$opt_debug       = undef;
+$opt_redact      = undef;
 
 # get options
 Getopt::Long::Configure('bundling');
@@ -104,6 +107,7 @@ GetOptions(
     't|timeout=i'         => \$opt_timeout,
     'r|retries=i'         => \$opt_retries,
     'H|host=s'            => \$opt_host,
+    'p|port=i'            => \$opt_port,
     'C|community=s'       => \$opt_community,
     'v|snmpver=s'         => \$opt_snmpver,
     'w|warning=i'         => \$opt_warning,
@@ -118,6 +122,8 @@ GetOptions(
     'metric'              => \$opt_metric,
     'firmware'            => \$opt_firmware,
     'ignoreoffline'       => \$opt_ignoffline,
+    'redact'              => \$opt_redact,
+    'd|debug=i'           => \$opt_debug,
     'u|user=s'            => \$opt_user,
     'A|authpass=s'        => \$opt_authpass,
     'a|authproto=s'       => \$opt_authproto,
@@ -181,7 +187,7 @@ sub print_usage {
     my $tab = ' ' x length($PROGNAME);
     print <<EOB
 Usage:
- check_snmp_printer -H host [-C snmp_community] [-v snmp_version] [-t timeout]
+ check_snmp_printer -H host [-C snmp_community] [-v snmp_version] [-t timeout] [-d level]
  check_snmp_printer --version
  check_snmp_printer --help
 EOB
@@ -219,6 +225,8 @@ Required Arguments:
     Checks current firmware revision and date of printer.
 
 Optional Arguments:
+ -p, --port=INTEGER
+    The port in which to connect via SNMP.  Default: 161
  -C, --community=STRING
     The community string of the SNMP agent. Default: public
  -v, --snmpver=STRING
@@ -247,6 +255,8 @@ Optional Arguments:
     SNMPv3 privacy key
  -n, --contextname=STRING
     Contextname for SNMPv3
+ -d, --debug=INTEGER
+    Enables debugging mode level [1 or 2]
 
  --metric
     Converts output to metric.  Default: imperial
@@ -260,6 +270,183 @@ Optional Arguments:
 EOB
 }
 
+sub initialize_snmp {
+
+    if ($opt_debug == 2) { $SNMP::debugging = 2 }
+
+    # Convert timeout to microseconds
+    my $stimeout = ($opt_timeout * 250000);
+
+    # Check snmp version, set snmp parameters
+    #if (!$opt_authpass) { $opt_authpass = $opt_authkey; }
+    #if (!$opt_privpass) { $opt_privpass = $opt_privkey; }
+
+    #base snmp arguments
+    %snmpargs = (DestHost      => $hostip,
+                 Version       => $opt_snmpver,
+                 RemotePort    => $opt_port,
+                 Timeout       => $stimeout,
+                 Retries       => $opt_retries,
+                 UseNumeric    => '1',
+    );
+    if ($opt_snmpver eq 2) {
+        $snmpcmds = "-v" . $opt_snmpver . "c -Cf -On -Oa";
+    } else {
+        $snmpcmds = "-v$opt_snmpver -Cf -On -Oa";
+    }
+
+    #snmp v1 and v2c specific arguments
+    my (%snmpv12,%snmpv3);
+    if ($opt_snmpver ne 3) {
+        %snmpv12 = ( Community  => $opt_community,);
+        $snmpcmds .= " -c $opt_community";
+    } else { #snmpv3 arguments
+        #base
+        %snmpv3 = ( SecName     => $opt_user, );
+        $snmpcmds .= " -u $opt_user";
+    }
+
+    if ( ($opt_user) and ($opt_authproto or $opt_privproto) ) {
+        my (%snmpv3pl,%snmpv3ap,%snmpv3pp,%snmpv3aa,%snmpv3pa);
+
+        # Auth Privilege
+        if ( $opt_authproto and $opt_privproto ) {
+            %snmpv3pl = ( SecLevel   => 'authPriv', );
+            $snmpcmds .= " -l authPriv";
+        } elsif ( $opt_authproto ) {
+            %snmpv3pl = ( SecLevel   => 'authNoPriv', );
+            $snmpcmds .= " -l authNoPriv";
+        } else {
+            %snmpv3pl = ( SecLevel   => 'noAuthNoPriv', );
+            $snmpcmds .= " -l noAuthNoPriv";
+        }
+
+        # Auth Protocols
+        if ($opt_authproto) {
+            %snmpv3ap = ( AuthProto   => $opt_authproto, );
+            $snmpcmds .= " -a $opt_authproto";
+        }
+        if ($opt_privproto) {
+            %snmpv3pp = ( PrivProto   => $opt_privproto, );
+            $snmpcmds .= " -x $opt_privproto";
+        }
+
+        # Auth Passphrase or Key
+        if ($opt_authpass) {
+            %snmpv3aa = ( AuthPass   => $opt_authpass, );
+            $snmpcmds .= " -A '" . $opt_authpass . "'";
+        }
+        if ($opt_authkey) {
+            %snmpv3aa = ( AuthLocalizedKey   => $opt_authkey, );
+            $snmpcmds .= " -3k '" . $opt_authkey . "'";
+        }
+        # Priv Passphrase or Key
+        if ($opt_privpass) {
+            %snmpv3pa = ( PrivPass   => $opt_privpass, );
+            $snmpcmds .= " -X '" . $opt_privpass . "'";
+        }
+        if ($opt_privkey) {
+            %snmpv3pa = ( PrivLocalizedKey   => $opt_privkey, );
+            $snmpcmds .= " -3K '" . $opt_privkey . "'";
+        }
+
+        %snmpv3 = ( %snmpv3, %snmpv3pl, %snmpv3ap, %snmpv3pp, %snmpv3aa, %snmpv3pa );
+
+        if ( $opt_contextname ) {
+            %snmpv3 = ( %snmpv3, Context    => $opt_contextname, );
+            $snmpcmds .= " -n $opt_contextname";
+        }
+    }
+    $snmpcmds .= " $hostip ";
+    if ( $opt_snmpver le 2 ) {
+        %snmpargs = ( %snmpargs, %snmpv12 );
+    } elsif ( $opt_snmpver eq 3 ) {
+        %snmpargs = ( %snmpargs, %snmpv3 );
+    } else {
+        $state = 'UNKNOWN';
+        stop( "$state: It appears you are missing one or more parameters necessary for v$opt_snmpver to function.\n",$state );
+    }
+
+    if ($opt_debug) {
+        %dbgsnmpargs = %snmpargs;
+        $dbgsnmpcmds = $snmpcmds;
+    }
+
+    if ($opt_redact) {
+        print "[Scrubbing data before printing to console....]\n";
+        if (scalar(%dbgsnmpargs)->{DestHost} =~ /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/) { scalar(%dbgsnmpargs)->{DestHost} = '<redacted_IP>'; }
+        if (scalar(%dbgsnmpargs)->{SecName}) { scalar(%dbgsnmpargs)->{SecName} = '<redacted_User>'; }
+        if (scalar(%dbgsnmpargs)->{AuthPass}) { scalar(%dbgsnmpargs)->{AuthPass} = '<redacted_AuthPass>'; }
+        if (scalar(%dbgsnmpargs)->{AuthKey}) { scalar(%dbgsnmpargs)->{AuthKey} = '<redacted_AuthKey>'; }
+        if (scalar(%dbgsnmpargs)->{PrivPass}) { scalar(%dbgsnmpargs)->{PrivPass} = '<redacted_PrivPass>'; }
+        if (scalar(%dbgsnmpargs)->{PrivKey}) { scalar(%dbgsnmpargs)->{PrivKey} = '<redacted_PrivKey>'; }
+        if (scalar(%dbgsnmpargs)->{Context}) { scalar(%dbgsnmpargs)->{Context} = '<redacted_Context>'; }
+        ($dbgsnmpcmds = $dbgsnmpcmds) =~ s/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/<redacted_IP>/g;
+        ($dbgsnmpcmds = $dbgsnmpcmds) =~ s/-u \w+/-u <redacted_User>/g;
+        ($dbgsnmpcmds = $dbgsnmpcmds) =~ s/-A '\w+'/-A <redacted_AuthPass>/g;
+        ($dbgsnmpcmds = $dbgsnmpcmds) =~ s/-3k '\w+'/-3k <redacted_AuthKey>/g;
+        ($dbgsnmpcmds = $dbgsnmpcmds) =~ s/-X '\w+'/-X <redacted_PrivPass>/g;
+        ($dbgsnmpcmds = $dbgsnmpcmds) =~ s/-3K '\w+'/-3K <redacted_PrivKey>/g;
+        ($dbgsnmpcmds = $dbgsnmpcmds) =~ s/-n \w+/-n <redacted_Contxt>/g;
+    }
+
+    if ($opt_debug ge 1) { print Dumper(\%dbgsnmpargs); }
+
+    $snmp = new SNMP::Session( %snmpargs );
+}
+
+sub check_reachability {
+    use Socket;
+    if ($opt_debug) { print "[Checking to see if host was entered as an IP address]\n"; }
+    if ($opt_host =~ /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/) { $isip = 1; }
+    if ($opt_debug) { if ($isip) { print "....it was.\n"; } else { print "....it was not.\n"; } }
+
+    # Check host for connectivity before proceeding
+    if ($opt_debug) { print "[Checking host for availability]\n"; }
+    my $hstatus = get_host_status($hostip);
+
+    # Convert hostname to IP as needed
+    if (!$isip) {
+        if ($opt_debug) {
+            print "[Converting host to an IP address]\n";
+            print "....from: $opt_host\n";
+        }
+        $hostip = inet_aton($opt_host);
+        if (!$hostip) {
+            if ($opt_debug) { print "....could not locate a DNS entry.\n....conversion unsucessful.\n"; }
+            $hostip = $opt_host;
+            return;
+        }
+        $hostip = inet_ntoa($hostip);
+        if ($hostip =~ /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/) {
+            if ($opt_debug) {
+                print "....to: ";
+                if ($opt_redact) { print "<redacted_IP>\n"; } else { print "$hostip\n"; }
+                print "....conversion successful.\n";
+            }
+        } else {
+            if ($opt_debug) {
+                print "....failed to convert to IP address.\n";
+                print "....reverting hostip variable.\n";
+            }
+            $hostip = $opt_host;
+        }
+    } else { $hostip = $opt_host; }
+}
+
+sub get_host_status {
+    use Net::Ping;
+
+    my $p = Net::Ping->new();
+    my $isUp = $p->ping($opt_host);
+
+    if ($opt_debug) {
+        if (($opt_redact) && ($isip)) { print "....<redacted_IP> is "; } else { print "....$opt_host is "; }
+        print "NOT " unless $isUp;
+        print "reachable by ping.\n";
+    }
+}
+
 sub check_model {
     my ($pcheck) = @_;
     my $oid;
@@ -267,7 +454,13 @@ sub check_model {
     my $SERIAL="";
     if ($pcheck == 1 || $pcheck == 2) {
         $oid="1.3.6.1.2.1.25.3.2.1.3.1";
-        $MODEL=$snmp->get([$oid]);
+        eval {
+            $MODEL=$snmp->get([$oid]);
+            1
+        } or do {
+            my $e = $@ || 'Unknown error';
+            print "$e\n";
+        };
         if ($MODEL =~ /(Lexmark \w+) (\w+) (\w+\.\w+\.\w+)/ ) { $MODEL = $1; $SERIAL = $2; }
         if ($snmp->{ErrorStr}) {
             if ($snmp->{ErrorStr} =~ m/Timeout/ and ($opt_ignoffline)) {
@@ -361,6 +554,7 @@ sub check_firmware {
         my $ldy = $1;
         $fwrev = $snmp->get(['.1.3.6.1.2.1.25.6.3.1.2.2']);
         chomp($fwupg = `snmpget $snmpcmds .1.3.6.1.2.1.25.6.3.1.5.2`);
+        if ($opt_debug) { print "snmpget $dbgsnmpcmds .1.3.6.1.2.1.25.6.3.1.5.2\n"; }
         if ( $fwrev =~ /(\d+\.\d+\.\d+\.\d+)/ ) { $fwrev = $1; }
         if ( $fwrev =~ /(\d)\.(\d\d\d)\d\d/ ) { 
             if ($1 gt $ldy) {
@@ -1239,99 +1433,9 @@ $SIG{ALRM} = sub {
 };
 alarm($opt_timeout*$opt_retries);
 
-# Convert timeout to microseconds
-my $stimeout = ($opt_timeout * 250000);
+check_reachability();
+initialize_snmp();
 
-# Check snmp version, set snmp parameters
-#if (!$opt_authpass) { $opt_authpass = $opt_authkey; }
-#if (!$opt_privpass) { $opt_privpass = $opt_privkey; }
-
-#base snmp arguments
-my %snmpargs = (DestHost      => $opt_host,
-                Version       => $opt_snmpver,
-                RemotePort    => 161,
-                Timeout       => $stimeout,
-                Retries       => $opt_retries,
-                UseNumeric    => '1',
-);
-if ($opt_snmpver eq 2) {
-    $snmpcmds = "-v" . $opt_snmpver . "c -Cf -On -Oa";
-} else { 
-    $snmpcmds = "-v$opt_snmpver -Cf -On -Oa";
-}
-
-#snmp v1 and v2c specific arguments
-my (%snmpv12,%snmpv3);
-if ($opt_snmpver ne 3) { 
-    %snmpv12 = ( Community  => $opt_community,);
-    $snmpcmds .= " -c $opt_community";
-} else { #snmpv3 arguments
-    #base
-    %snmpv3 = ( SecName     => $opt_user, );
-    $snmpcmds .= " -u $opt_user";
-}
-
-if ( ($opt_user) and ($opt_authproto or $opt_privproto) ) {
-    my (%snmpv3pl,%snmpv3ap,%snmpv3pp,%snmpv3aa,%snmpv3pa);
-
-    # Auth Privilege
-    if ( $opt_authproto and $opt_privproto ) {
-        %snmpv3pl = ( SecLevel   => 'authPriv', );
-        $snmpcmds .= " -l authPriv";
-    } elsif ( $opt_authproto ) {
-        %snmpv3pl = ( SecLevel   => 'authNoPriv', );
-        $snmpcmds .= " -l authNoPriv";
-    } else {
-        %snmpv3pl = ( SecLevel   => 'noAuthNoPriv', );
-        $snmpcmds .= " -l noAuthNoPriv";
-    }
-
-    # Auth Protocols
-    if ($opt_authproto) {
-        %snmpv3ap = ( AuthProto   => $opt_authproto, );
-        $snmpcmds .= " -a $opt_authproto";
-    }
-    if ($opt_privproto) {
-        %snmpv3pp = ( PrivProto   => $opt_privproto, );
-        $snmpcmds .= " -x $opt_privproto";
-    }
-
-    # Auth Passphrase or Key
-    if ($opt_authpass) {
-        %snmpv3aa = ( AuthPass   => $opt_authpass, );
-        $snmpcmds .= " -A '" . $opt_authpass . "'";
-    }
-    if ($opt_authkey) {
-        %snmpv3aa = ( AuthLocalizedKey   => $opt_authkey, );
-        $snmpcmds .= " -3k '" . $opt_authkey . "'";
-    }
-    # Priv Passphrase or Key
-    if ($opt_privpass) {
-        %snmpv3pa = ( PrivPass   => $opt_privpass, );
-        $snmpcmds .= " -X '" . $opt_privpass . "'";
-    }
-    if ($opt_privkey) {
-        %snmpv3pa = ( PrivLocalizedKey   => $opt_privkey, );
-        $snmpcmds .= " -3K '" . $opt_privkey . "'";
-    }
-
-    %snmpv3 = ( %snmpv3, %snmpv3pl, %snmpv3ap, %snmpv3pp, %snmpv3aa, %snmpv3pa );
-
-    if ( $opt_contextname ) {
-        %snmpv3 = ( %snmpv3, Context    => $opt_contextname, );
-        $snmpcmds .= " -n $opt_contextname";
-    }
-}
-$snmpcmds .= " $opt_host ";
-if ( $opt_snmpver le 2 ) {
-    %snmpargs = ( %snmpargs, %snmpv12 );
-} elsif ( $opt_snmpver eq 3 ) {
-    %snmpargs = ( %snmpargs, %snmpv3 );
-} else {
-    $state = 'UNKNOWN';
-    stop( "$state: It appears you are missing one or more parameters necessary for v$opt_snmpver to function.\n",$state );
-}
-$snmp = new SNMP::Session( %snmpargs );
 if ($opt_messages) {check_messages();}
 if ($opt_model) {check_model(1); exit($ERRORS{'OK'});}
 if ($opt_pagecount) {check_page_count();}
