@@ -8,6 +8,7 @@
 ### Bug Fixes
 
 * Added in a check for some Ricohs that have their toners named slightly differently (Issue #32)
+* Changed the PrivProto and AuthProto to be converted to all caps since some systems needed it as such to work
 
 <a name="2.0.1"></a>
 # [2.0.1](https://github.com/Tylan/check_snmp_printer/compare/v2.0.0...v2.0.1) (2023-04-05)

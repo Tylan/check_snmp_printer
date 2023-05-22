@@ -323,12 +323,12 @@ sub initialize_snmp {
 
         # Auth Protocols
         if ($opt_authproto) {
-            %snmpv3ap = ( AuthProto   => $opt_authproto, );
-            $snmpcmds .= " -a $opt_authproto";
+            %snmpv3ap = ( AuthProto   => uc($opt_authproto), );
+            $snmpcmds .= " -a uc($opt_authproto)";
         }
         if ($opt_privproto) {
-            %snmpv3pp = ( PrivProto   => $opt_privproto, );
-            $snmpcmds .= " -x $opt_privproto";
+            %snmpv3pp = ( PrivProto   => uc($opt_privproto), );
+            $snmpcmds .= " -x uc($opt_privproto)";
         }
 
         # Auth Passphrase or Key
