@@ -221,4 +221,4 @@
 * Made consumables and trays all or nothing for simplicity
 * Added perfdata collection for consumables
 * Added support for metric system output
-* Better formated output strings
+* Better formatted output strings
